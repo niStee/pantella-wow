@@ -32,6 +32,8 @@ jobs:
           pip install -r req_clean.txt || true
 
       - name: Run pytest
+        env:
+          PYTHONPATH: .
         run: |
           pytest -v tests/
 

@@ -16,12 +16,12 @@ globals = {
     "GetTime", "UIParent", "DEFAULT_CHAT_FRAME", "print", "message",
     "tostring", "tonumber", "pcall", "pairs", "ipairs", "table", "math",
     "string", "select", "type", "QuestieDB", "QuestiePlayer", "DBM",
-    "CurveConstants"
+    "CurveConstants", "MantellaWoWDB"
 }
 
--- Allow these as read-only globals
-read_globals = {
-    "MantellaWoWDB"
+-- Ignore whitespace issues
+ignore = {
+    "611"
 }
 
 -- Unused arguments are common in WoW event handlers
