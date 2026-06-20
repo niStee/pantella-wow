@@ -1,6 +1,8 @@
 # Pantella WoW Addon
 
-World of Warcraft integration for Pantella. Experience real-time radiant AI conversations with NPCs and your pets directly inside the game, triggered dynamically by your Combat Log and in-game events!
+World of Warcraft integration for [Pantella](https://github.com/Pathos14489/Pantella) (a powerful LLM-bridge for gaming), inspired by the original [Mantella](https://github.com/art-from-the-machine/Mantella) project. 
+
+Experience real-time radiant AI conversations with NPCs and your pets directly inside the game, triggered dynamically by your Combat Log and in-game events!
 
 ## Installation
 
