@@ -1,0 +1,17 @@
+repos:
+  - repo: https://github.com/JohnnyMorganz/luacheck-precommit
+    rev: v1.1.0
+    hooks:
+      - id: luacheck
+        args: ["--config", ".luacheckrc"]
+        stages: [commit]
+
+  - repo: local
+    hooks:
+      - id: pytest
+        name: pytest
+        entry: pytest
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [push]
