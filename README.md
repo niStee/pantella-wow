@@ -2,6 +2,9 @@
 
 [![CI](https://github.com/niStee/pantella-wow/actions/workflows/ci.yml/badge.svg)](https://github.com/niStee/pantella-wow/actions/workflows/ci.yml)
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/niStee/pantella-wow/badge)](https://securityscorecards.dev/viewer/?uri=github.com/niStee/pantella-wow)
+[![CodeQL](https://github.com/niStee/pantella-wow/actions/workflows/github-code-scanning/codeql/badge.svg)](https://github.com/niStee/pantella-wow/security/code-scanning)
+[![Dependency Graph](https://github.com/niStee/pantella-wow/actions/workflows/dependabot/update-graph/badge.svg)](https://github.com/niStee/pantella-wow/network/dependencies)
+
 
 World of Warcraft integration for [Pantella](https://github.com/Pathos14489/Pantella) (a powerful LLM-bridge for gaming), inspired by the original [Mantella](https://github.com/art-from-the-machine/Mantella) project. 
 
