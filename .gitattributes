@@ -1,0 +1,13 @@
+# Files excluded from GitHub's auto-generated source zip (export-ignore)
+# This keeps the Nexus Mods download clean for end users.
+
+tests/                  export-ignore
+.github/                export-ignore
+requirements-dev.in     export-ignore
+requirements-dev.txt    export-ignore
+requirements.in         export-ignore
+pytest.ini              export-ignore
+.pre-commit-config.yaml export-ignore
+.luacheckrc             export-ignore
+TESTING.md              export-ignore
+SECURITY.md             export-ignore
