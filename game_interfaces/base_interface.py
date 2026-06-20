@@ -10,29 +10,29 @@ class BaseGameInterface:
         self.game_state = {}
 
     def load_game_state(self):
-        """Override in subclass. Read game state from source.""""
+        """Override in subclass. Read game state from source."""
         raise NotImplementedError
 
     def get_current_location(self, presume=''):
-        """Return current player location.""""
+        """Return current player location."""
         return self.game_state.get('location', presume)
 
     def get_current_game_time(self):
-        """Return current in-game time.""""
+        """Return current in-game time."""
         return self.game_state.get('game_time', 'Unknown')
 
     def send_response(self, sentence_queue, event=None):
-        """Send response via TTS.""""
+        """Send response via TTS."""
         pass
 
     def get_player_response(self, possible_names_list=None):
-        """Get player input via STT or text.""""
+        """Get player input via STT or text."""
         return None
 
     def is_conversation_ended(self):
-        """Check if conversation has ended.""""
+        """Check if conversation has ended."""
         return False
 
     def get_current_context_string(self):
-        """Return context string for LLM prompt.""""
+        """Return context string for LLM prompt."""
         return str(self.game_state)
