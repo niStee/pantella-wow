@@ -2,7 +2,11 @@ import json
 import time
 import os
 import threading
-from .base_interface import BaseGameInterface
+from src.game_interfaces.base_interface import BaseGameInterface
+from overlay import OverlayManager
+
+valid_games = ["wow"]
+interface_slug = "wow_game_interface"
 
 try:
     import win32gui
