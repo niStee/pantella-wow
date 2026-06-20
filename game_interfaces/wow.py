@@ -50,7 +50,7 @@ class WoWGameInterface(BaseGameInterface):
     """Windows-native WoW interface with pet integration, overlay, and radiant triggers."""
     
     def __init__(self, conversation_manager):
-        super().__init__(conversation_manager, valid_games=['wow'], interface_slug='wow')
+        super().__init__(conversation_manager)
         self.wow_window = None
         self.editbox_hwnd = None
         self.combat_log_path = self._find_combat_log()
@@ -79,7 +79,7 @@ class WoWGameInterface(BaseGameInterface):
     # ── Overlay ─────────────────────────────────────────────
     def _init_overlay(self):
         try:
-            from .overlay import TkinterOverlay
+            from overlay import TkinterOverlay
             self.overlay = TkinterOverlay(title="Companion")
             self.overlay.start()
         except Exception as e:
@@ -189,14 +189,14 @@ class WoWGameInterface(BaseGameInterface):
     def _generate_reaction(self, event, pet):
         etype = event.get('type')
         data = event.get('data', '')
-        if etype == 'chat': return f"Someone speaks: {data}"
-        elif etype == 'zone': return f"We arrive in {data}."
-        elif etype == 'combat': return "Trouble. Combat has started."
-        elif etype == 'gossip_show': return f"Master is speaking with {data}."
-        elif etype == 'trade_show': return f"Master is trading with {data}."
-        elif etype == 'quest_accepted': return "A new task accepted."
-        elif etype == 'quest_complete': return "A task completed. Master grows stronger."
-        return f"Event occurred: {etype}"
+        if etype == 'chat': return f"[SYSTEM: React naturally to hearing someone say: {data}]"
+        elif etype == 'zone': return f"[SYSTEM: React to arriving in a new zone: {data}]"
+        elif etype == 'combat': return "[SYSTEM: React to combat starting. Act defensively or aggressively based on your personality.]"
+        elif etype == 'gossip_show': return f"[SYSTEM: React to your master speaking with NPC: {data}]"
+        elif etype == 'trade_show': return f"[SYSTEM: React to your master opening a trade window with: {data}]"
+        elif etype == 'quest_accepted': return "[SYSTEM: React to your master accepting a new quest.]"
+        elif etype == 'quest_complete': return "[SYSTEM: React to your master completing a quest.]"
+        return f"[SYSTEM: React to an unexpected event: {etype}]"
 
     # ── Core State Methods ──────────────────────────────────
     def load_game_state(self):
