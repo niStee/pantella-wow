@@ -55,6 +55,7 @@ class WoWGameInterface(BaseGameInterface):
         
         # Radiant queue
         self.radiant_queue = []
+        self._last_processed_event_id = 0
         
         # Overlay
         self.overlay = None
@@ -159,6 +160,33 @@ class WoWGameInterface(BaseGameInterface):
             self.editbox_hwnd = None
             return None
             
+
+    def _score_event(self, event_type, data):
+        token = self.game_state.get('pet', {}).get('pet_token', 'PET')
+        scores = {
+            'MOUNT': {'zone': 10, 'combat': 5, 'chat': 1, 'trade_show': 1, 'gossip_show': 1, 'quest_accepted': 3, 'quest_complete': 3},
+            'PET': {'zone': 5, 'combat': 10, 'chat': 2, 'trade_show': 2, 'gossip_show': 2, 'quest_accepted': 5, 'quest_complete': 5},
+            'COMPANION': {'zone': 8, 'combat': 2, 'chat': 9, 'trade_show': 6, 'gossip_show': 7, 'quest_accepted': 10, 'quest_complete': 10}
+        }
+        return scores.get(token, scores['PET']).get(event_type, 5)
+
+    def _get_threshold_for_chattyness(self):
+        chatty = self.game_state.get('chattyness', 3)
+        thresholds = {1: 9, 2: 8, 3: 7, 4: 6, 5: 4}
+        return thresholds.get(chatty, 7)
+        
+    def _generate_reaction(self, event, pet):
+        etype = event.get('type')
+        data = event.get('data', '')
+        if etype == 'chat': return f"Someone speaks: {data}"
+        elif etype == 'zone': return f"We arrive in {data}."
+        elif etype == 'combat': return "Trouble. Combat has started."
+        elif etype == 'gossip_show': return f"Master is speaking with {data}."
+        elif etype == 'trade_show': return f"Master is trading with {data}."
+        elif etype == 'quest_accepted': return "A new task accepted."
+        elif etype == 'quest_complete': return "A task completed. Master grows stronger."
+        return f"Event occurred: {etype}"
+
     # ── Core State Methods ──────────────────────────────────
     def load_game_state(self):
         state = {}
@@ -254,9 +282,13 @@ class WoWGameInterface(BaseGameInterface):
                     personality = sub
                     break
         
-        # Companion pet override
+        # Companion pet override and Lore
         if token == 'COMPANION':
-            personality = self.PET_PERSONALITIES['Companion']
+            lore = pet.get('lore', '')
+            if lore:
+                personality = f"You are {name}. {lore} You are small, cute, and loyal. You love following your master around."
+            else:
+                personality = self.PET_PERSONALITIES['Companion']
         
         # Health status
         health = pet.get('health', 100)
@@ -275,9 +307,40 @@ class WoWGameInterface(BaseGameInterface):
         if token == 'MOUNT':
             status = 'You are currently being ridden. You feel the wind in your... well, you have no hair, but it feels good.'
         
+        # Environmental Context
+        nearby = state.get('nearby', {})
+        players = nearby.get('players', [])
+        hostiles = nearby.get('hostile', [])
+        npcs = nearby.get('npcs', [])
+        
+        env_lines = []
+        if players: env_lines.append(f"Nearby players: {', '.join(players)}.")
+        if hostiles: env_lines.append(f"Danger! Hostile entities: {', '.join(hostiles)}.")
+        if npcs: env_lines.append(f"Nearby NPCs: {', '.join(npcs)}.")
+        
+        group_size = state.get('group_size', 0)
+        if group_size > 1:
+            env_lines.append(f"You are in a group of {group_size}.")
+        else:
+            env_lines.append("You are alone.")
+            
+        env_context = "\n".join(env_lines) if env_lines else "The surroundings are quiet."
+        
+        chatty = state.get('chattyness', 3)
+        silence_rules = {
+            1: "You are laconic. You speak only when necessary.",
+            2: "You are brief. Never more than 15 words unless it's an emergency.",
+            3: "You are observant but not verbose. One short sentence per event.",
+            4: "You are chatty but not annoying. Keep it under 25 words.",
+            5: "You are excitable and talkative, but never repeat yourself."
+        }
+        rule = silence_rules.get(chatty, silence_rules[3])
+
         return f"""You are {name}, {personality}
 {status}
 Your master is in {state.get('zone', 'an unknown place')}.
+{env_context}
+RULE: {rule}
 You are a real entity in World of Warcraft, not an AI.
 Respond in character. Keep responses under 30 seconds.
 Never break character. Never mention you are an AI."""
@@ -312,15 +375,6 @@ Never break character. Never mention you are an AI."""
         elif not pet.get('is_dead'):
             self.pet_was_dead = False
             
-        zone = state.get('zone', '')
-        if zone and zone != self.last_zone:
-            self.last_zone = zone
-            triggers.append({
-                'text': f"We arrive in {zone}. I sense the energy of this place.",
-                'priority': 'low',
-                'color': 'cyan'
-            })
-            
         for timer in state.get('dbm_timers', []):
             timer_id = timer.get('id', '')
             time_remaining = timer.get('time_remaining', 999)
@@ -332,6 +386,25 @@ Never break character. Never mention you are an AI."""
                 })
             self.last_dbm_timers[timer_id] = time_remaining
             
+        # Process Ring Buffer Events
+        events = state.get('recent_events', [])
+        for event in events:
+            event_id = event.get('id', 0)
+            if event_id <= self._last_processed_event_id:
+                continue
+            self._last_processed_event_id = event_id
+            
+            score = self._score_event(event.get('type'), event.get('data'))
+            threshold = self._get_threshold_for_chattyness()
+            
+            if score >= threshold:
+                reaction_text = self._generate_reaction(event, pet)
+                triggers.append({
+                    'text': reaction_text,
+                    'priority': 'reactive',
+                    'color': 'cyan'
+                })
+                
         return triggers
         
     def get_current_context_string(self):
@@ -375,6 +448,7 @@ Never break character. Never mention you are an AI."""
     def end_conversation(self):
         """Reset state when conversation ends."""
         self.radiant_queue = []
+        self._last_processed_event_id = 0
         self._update_overlay("Companion standing by...", "white")
         return True
         

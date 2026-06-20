@@ -153,6 +153,38 @@ class TestRadiantTriggers:
         assert len(t1) > 0
         assert len(t2) == 0  # Already triggered at 20%
 
+    def test_recent_events_throttling_and_dedup(self, interface):
+        """Test that events are scored, throttled, and deduplicated."""
+        interface.game_state = {
+            'pet': {'name': 'Lil Ragnaros', 'pet_token': 'COMPANION'},
+            'chattyness': 3,  # threshold is 7
+            'recent_events': [
+                {'id': 1, 'type': 'zone', 'data': 'Stormwind'},          # COMPANION zone score is 8 (>=7), should trigger
+                {'id': 2, 'type': 'combat', 'data': 'Enter Combat'},     # COMPANION combat score is 2 (<7), ignored
+                {'id': 3, 'type': 'chat', 'data': 'Thrall: hello'}       # COMPANION chat score is 9 (>=7), should trigger
+            ]
+        }
+        
+        triggers = interface.check_radiant_triggers()
+        assert len(triggers) == 2
+        assert 'Stormwind' in triggers[0]['text']
+        assert 'Thrall: hello' in triggers[1]['text']
+        
+        # Next poll, deduplication should prevent triggering them again
+        triggers_again = interface.check_radiant_triggers()
+        assert len(triggers_again) == 0
+        
+    def test_low_chattyness_ignores_events(self, interface):
+        interface.game_state = {
+            'pet': {'name': 'Lil Ragnaros', 'pet_token': 'COMPANION'},
+            'chattyness': 1,  # threshold is 9
+            'recent_events': [
+                {'id': 4, 'type': 'zone', 'data': 'Elwynn'} # score 8, so it is ignored
+            ]
+        }
+        triggers = interface.check_radiant_triggers()
+        assert len(triggers) == 0
+
 
 class TestStateParsing:
     """Test load_game_state() and edge cases."""

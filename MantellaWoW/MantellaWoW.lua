@@ -4,7 +4,7 @@
 local addonName, addon = ...
 
 local defaults = {
-    version = "3.0.0",
+    version = "3.1.0",
     player_name = "",
     player_level = 0,
     player_class = "",
@@ -16,6 +16,10 @@ local defaults = {
     dbm_timers = {},
     combat_events = {},
     timestamp = 0,
+    chattyness = 3,
+    recent_events = {},
+    nearby = { players = {}, npcs = {}, hostile = {} },
+    group_size = 0,
     -- Pet data
     pet = {
         name = "Companion",
@@ -24,19 +28,24 @@ local defaults = {
         health = 100,
         is_dead = false,
         is_attacking = false,
-        target = nil
+        target = nil,
+        lore = ""
     },
     companion_name = "Companion",
     companion_type = "Unknown"
 }
 
--- Simple JSON encoder
+-- Simple JSON encoder (Optimized to skip empty arrays)
 local function ToJSON(obj)
     local t = type(obj)
     if t == "string" then return string.format("%q", obj)
     elseif t == "number" then return tostring(obj)
     elseif t == "boolean" then return obj and "true" or "false"
     elseif t == "table" then
+        local count = 0
+        for _ in pairs(obj) do count = count + 1 end
+        if count == 0 then return "{}" end
+        
         local parts = {}
         for k, v in pairs(obj) do
             table.insert(parts, string.format("%s:%s", ToJSON(k), ToJSON(v)))
@@ -57,16 +66,29 @@ local function InitializeAddon()
     end
 end
 
+-- Event Ring Buffer
+local EVENT_BUFFER_SIZE = 5
+local event_buffer = {}
+local event_counter = 0
+
+local function PushEvent(event_type, data)
+    event_counter = event_counter + 1
+    local slot = ((event_counter - 1) % EVENT_BUFFER_SIZE) + 1
+    event_buffer[slot] = {
+        id = event_counter,
+        type = event_type,
+        data = data,
+        time = GetTime()
+    }
+end
+
 -- Pet detection
 local function GetCurrentCompanion()
-    -- Priority 1: Active mount
     if IsMounted() then
         local mountName = "Mount"
-        -- Find mount aura on player (aura name is usually the mount name)
         for i = 1, 40 do
-            local name, icon, _, _, _, _, _, _, _, spellId = UnitAura("player", i)
+            local name, _, _, _, _, _, _, _, _, spellId = UnitAura("player", i)
             if name and spellId then
-                -- Verify it's actually a mount via C_MountJournal
                 local mountID = C_MountJournal.GetMountFromSpell(spellId)
                 if mountID then
                     mountName = name
@@ -87,7 +109,6 @@ local function GetCurrentCompanion()
         }
     end
     
-    -- Priority 2: Combat pet
     local hasSpells, petToken = HasPetSpells()
     if hasSpells then
         local name = UnitName("pet")
@@ -103,14 +124,10 @@ local function GetCurrentCompanion()
             if not isDead then
                 local success, result = pcall(function()
                     local pct = UnitHealthPercent("pet", true, CurveConstants.ScaleTo100)
-                    if pct then
-                        return tonumber(string.format("%.0f", pct))
-                    end
+                    if pct then return tonumber(string.format("%.0f", pct)) end
                     return 100
                 end)
-                if success and result then
-                    health = result
-                end
+                if success and result then health = result end
             else
                 health = 0
             end
@@ -128,16 +145,18 @@ local function GetCurrentCompanion()
         end
     end
     
-    -- Priority 3: Companion pet (vanity)
     local petGUID = C_PetJournal.GetSummonedPetGUID()
     if petGUID then
-        local speciesID, customName, level, _, _, _, _, _, _, _ = C_PetJournal.GetPetInfoByPetID(petGUID)
+        local speciesID, customName = C_PetJournal.GetPetInfoByPetID(petGUID)
         local name = customName
-        if not name or name == "" then
-            -- Get default name from species
-            local speciesName, _, _, _, _, _, _, _, _ = C_PetJournal.GetPetInfoBySpeciesID(speciesID)
-            name = speciesName or "Companion"
+        local description = ""
+        if speciesID then
+            local speciesName, _, _, _, desc = C_PetJournal.GetPetInfoBySpeciesID(speciesID)
+            if not name or name == "" then name = speciesName or "Companion" end
+            description = desc or ""
         end
+        
+        if not name or name == "" then name = "Companion" end
         
         return {
             name = name,
@@ -147,14 +166,14 @@ local function GetCurrentCompanion()
             is_dead = false,
             is_attacking = false,
             target = nil,
-            pet_token = "COMPANION"
+            pet_token = "COMPANION",
+            lore = description
         }
     end
     
-    return nil  -- No companion
+    return nil
 end
 
--- Hidden EditBox for state export
 local stateFrame = CreateFrame("EditBox", "MantellaWoW_State", UIParent)
 stateFrame:Hide()
 stateFrame:SetMultiLine(false)
@@ -169,9 +188,18 @@ local function UpdatePlayerState()
     db.player_name = UnitName("player") or ""
     db.player_level = UnitLevel("player") or 0
     db.player_class = select(1, UnitClass("player")) or ""
-    db.zone = GetZoneText() or ""
+    local newZone = GetZoneText() or ""
+    if newZone ~= "" and db.zone ~= newZone then
+        PushEvent("zone", newZone)
+    end
+    db.zone = newZone
     db.subzone = GetSubZoneText() or ""
-    db.in_combat = UnitAffectingCombat("player") or false
+    
+    local in_combat = UnitAffectingCombat("player") or false
+    if in_combat and not db.in_combat then
+        PushEvent("combat", "Enter Combat")
+    end
+    db.in_combat = in_combat
     db.is_in_instance = IsInInstance() or false
     db.timestamp = GetTime()
 end
@@ -211,8 +239,73 @@ local function UpdateDBMState()
     end
 end
 
+local function UpdateSocialState()
+    local db = MantellaWoWDB
+    db.group_size = GetNumGroupMembers()
+    db.nearby = { players = {}, npcs = {}, hostile = {} }
+    
+    local plates = C_NamePlate.GetNamePlates()
+    for _, plate in ipairs(plates) do
+        local unit = plate.namePlateUnitToken
+        if unit then
+            local name = UnitName(unit)
+            if name then
+                if UnitIsPlayer(unit) then
+                    if #db.nearby.players < 3 then table.insert(db.nearby.players, name) end
+                elseif UnitReaction("player", unit) and UnitReaction("player", unit) < 4 then
+                    if #db.nearby.hostile < 3 then table.insert(db.nearby.hostile, name) end
+                else
+                    if #db.nearby.npcs < 3 then table.insert(db.nearby.npcs, name) end
+                end
+            end
+        end
+    end
+end
+
+-- Chat tracking
+local chatFrame = CreateFrame("Frame")
+chatFrame:RegisterEvent("CHAT_MSG_SAY")
+chatFrame:RegisterEvent("CHAT_MSG_PARTY")
+chatFrame:RegisterEvent("CHAT_MSG_WHISPER")
+chatFrame:RegisterEvent("CHAT_MSG_EMOTE")
+
+chatFrame:SetScript("OnEvent", function(self, event, msg, sender, ...)
+    if sender == UnitName("player") then return end
+    PushEvent("chat", sender .. ": " .. msg)
+end)
+
+-- NPC/Interaction tracking
+local interactionFrame = CreateFrame("Frame")
+interactionFrame:RegisterEvent("GOSSIP_SHOW")
+interactionFrame:RegisterEvent("QUEST_ACCEPTED")
+interactionFrame:RegisterEvent("QUEST_COMPLETE")
+interactionFrame:RegisterEvent("TRADE_SHOW")
+interactionFrame:RegisterEvent("MERCHANT_SHOW")
+
+interactionFrame:SetScript("OnEvent", function(self, event, ...)
+    local target = UnitName("npc") or "Unknown"
+    if event == "TRADE_SHOW" then target = UnitName("target") or "Unknown" end
+    PushEvent(event:lower(), target)
+end)
+
+local last_json = ""
+local last_hash = ""
+
+local function HashState()
+    local pet = MantellaWoWDB.pet or {}
+    return string.format("%s|%s|%s|%d|%s|%d",
+        pet.name or "",
+        pet.family or "",
+        pet.health or 0,
+        MantellaWoWDB.in_combat and 1 or 0,
+        MantellaWoWDB.zone or "",
+        event_counter
+    )
+end
+
 local function OnUpdate()
     UpdatePlayerState()
+    UpdateSocialState()
     UpdateQuestState()
     UpdateDBMState()
     
@@ -230,8 +323,21 @@ local function OnUpdate()
         MantellaWoWDB.companion_type = "Unknown"
     end
     
-    local json = ToJSON(MantellaWoWDB)
-    stateFrame:SetText(json)
+    -- Copy event buffer into state
+    MantellaWoWDB.recent_events = {}
+    for i = 1, EVENT_BUFFER_SIZE do
+        if event_buffer[i] then
+            table.insert(MantellaWoWDB.recent_events, event_buffer[i])
+        end
+    end
+    
+    local current_hash = HashState()
+    if current_hash ~= last_hash then
+        last_hash = current_hash
+        local json = ToJSON(MantellaWoWDB)
+        stateFrame:SetText(json)
+        last_json = json
+    end
 end
 
 local frame = CreateFrame("Frame")
