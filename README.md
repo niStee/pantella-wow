@@ -1,7 +1,7 @@
 # WoW AI Companion Bridge (Pantella Fork)
 
 [![CI](https://github.com/niStee/pantella-wow/actions/workflows/ci.yml/badge.svg)](https://github.com/niStee/pantella-wow/actions)
-[![CodeQL](https://github.com/niStee/pantella-wow/actions/workflows/codeql.yml/badge.svg)](https://github.com/niStee/pantella-wow/actions)
+[![CodeQL](https://github.com/niStee/pantella-wow/actions/workflows/github-code-scanning/codeql/badge.svg)](https://github.com/niStee/pantella-wow/actions)
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/niStee/pantella-wow/badge)](https://api.securityscorecards.dev/projects/github.com/niStee/pantella-wow)
 
 ## Architecture Overview
