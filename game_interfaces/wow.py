@@ -41,7 +41,6 @@ except ImportError:
 
 
 # ── Prompt Injection Sanitisation ───────────────────────────────────────────
-# Patterns commonly used to hijack LLM system prompts via untrusted user input
 _PROMPT_INJECTION_RE = re.compile(
     r'(\[INST\]'
     r'|<\|system\|>'
@@ -61,9 +60,77 @@ def _sanitise(value: str, max_len: int = 128) -> str:
     if not isinstance(value, str):
         return ""
     value = value[:max_len]
-    value = re.sub(r'[\x00-\x1f\x7f]', '', value)   # strip control chars
+    value = re.sub(r'[\x00-\x1f\x7f]', '', value)
     value = _PROMPT_INJECTION_RE.sub('[REDACTED]', value)
     return value.strip()
+
+
+def _sanitise_overlay(text: str, max_len: int = 200) -> str:
+    """Sanitise text destined for the Tkinter overlay (no newlines, bounded length)."""
+    if not isinstance(text, str):
+        return ""
+    text = text[:max_len]
+    text = re.sub(r'[\r\n\t]', ' ', text)
+    text = re.sub(r'[\x00-\x1f\x7f]', '', text)
+    return text.strip()
+
+
+def _validate_game_state(state: dict) -> dict:
+    """Enforce types, bounds and size limits on the parsed game state dict."""
+    if not isinstance(state, dict):
+        return {}
+
+    # Cap list fields to prevent memory/CPU abuse
+    for list_field in ('recent_events', 'active_quests', 'dbm_timers', 'combat_events'):
+        if list_field in state and isinstance(state[list_field], list):
+            state[list_field] = state[list_field][:50]
+
+    # Validate nearby sub-dict lists
+    nearby = state.get('nearby', {})
+    if isinstance(nearby, dict):
+        for sub in ('players', 'hostile', 'npcs'):
+            if sub in nearby and isinstance(nearby[sub], list):
+                nearby[sub] = nearby[sub][:20]
+        state['nearby'] = nearby
+
+    # Pet sub-dict type coercion
+    pet = state.get('pet', {})
+    if isinstance(pet, dict):
+        # health must be int 0-100
+        try:
+            pet['health'] = max(0, min(100, int(pet.get('health', 100))))
+        except (TypeError, ValueError):
+            pet['health'] = 100
+        # is_dead must be bool
+        pet['is_dead'] = bool(pet.get('is_dead', False))
+        state['pet'] = pet
+
+    # group_size must be a non-negative int
+    try:
+        state['group_size'] = max(0, int(state.get('group_size', 0)))
+    except (TypeError, ValueError):
+        state['group_size'] = 0
+
+    # chattyness must be int 1-5
+    try:
+        state['chattyness'] = max(1, min(5, int(state.get('chattyness', 3))))
+    except (TypeError, ValueError):
+        state['chattyness'] = 3
+
+    return state
+
+
+# ── Allowed audio output directory (freeze at module load time) ────────────
+_AUDIO_ROOT = os.path.realpath(os.path.join(addon_root, 'xVASynth'))
+
+
+def _is_safe_audio_path(path: str) -> bool:
+    """Return True only if path resolves inside the expected audio output directory."""
+    try:
+        resolved = os.path.realpath(path)
+        return resolved.startswith(_AUDIO_ROOT + os.sep) or resolved.startswith(_AUDIO_ROOT)
+    except (TypeError, ValueError):
+        return False
 
 
 class CombatLogHandler(FileSystemEventHandler):
@@ -82,7 +149,9 @@ class WoWGameInterface(BaseGameInterface):
         super().__init__(conversation_manager)
         self.wow_window = None
         self.editbox_hwnd = None
+        # Freeze combat log path at init — never allow runtime reassignment
         self.combat_log_path = self._find_combat_log()
+        self._combat_log_path_validated = self.combat_log_path  # immutable reference
         self.combat_log_offset = 0
         self.combat_events = []
 
@@ -118,14 +187,18 @@ class WoWGameInterface(BaseGameInterface):
 
     def _update_overlay(self, text, color='white'):
         if self.overlay:
-            self.overlay.update_text(text, color)
+            self.overlay.update_text(_sanitise_overlay(text), color)
 
     def _update_overlay_title(self, title):
         if self.overlay:
-            self.overlay.update_title(title)
+            self.overlay.update_title(_sanitise_overlay(title, max_len=64))
 
     # ── Combat Log (Watchdog) ─────────────────────────────
     def _find_combat_log(self):
+        _allowed_bases = [
+            r"C:\Program Files (x86)\World of Warcraft",
+            r"C:\Program Files\World of Warcraft",
+        ]
         paths = [
             r"C:\Program Files (x86)\World of Warcraft\_retail_\Logs\WoWCombatLog.txt",
             r"C:\Program Files\World of Warcraft\_retail_\Logs\WoWCombatLog.txt",
@@ -133,8 +206,11 @@ class WoWGameInterface(BaseGameInterface):
             r"C:\Program Files\World of Warcraft\_classic_\Logs\WoWCombatLog.txt",
         ]
         for p in paths:
-            if os.path.exists(p):
-                return p
+            real = os.path.realpath(p)
+            if os.path.exists(real) and any(
+                real.startswith(os.path.realpath(b)) for b in _allowed_bases
+            ):
+                return real
         return None
 
     def _init_combat_log_watcher(self):
@@ -150,11 +226,15 @@ class WoWGameInterface(BaseGameInterface):
         self._combat_observer.start()
 
     def _read_combat_log_delta(self):
+        # Always use the frozen validated path
+        path = self._combat_log_path_validated
+        if not path:
+            return
         try:
-            current_size = os.path.getsize(self.combat_log_path)
+            current_size = os.path.getsize(path)
             if current_size <= self.combat_log_offset:
                 return
-            with open(self.combat_log_path, 'r', encoding='utf-8', errors='replace') as f:
+            with open(path, 'r', encoding='utf-8', errors='replace') as f:
                 f.seek(self.combat_log_offset)
                 lines = f.readlines()
                 self.combat_log_offset = f.tell()
@@ -202,14 +282,12 @@ class WoWGameInterface(BaseGameInterface):
             )
             if length == 0:
                 return None
-            # Clamp to a safe maximum to prevent oversized buffer reads
             max_length = min(length, 8192)
             buffer = win32gui.PyMakeBuffer(max_length + 1)
             win32gui.SendMessage(
                 self.editbox_hwnd, win32con.WM_GETTEXT, max_length + 1, buffer
             )
             raw = bytes(buffer)
-            # Decode only up to the first null terminator
             null_pos = raw.find(b'\x00')
             if null_pos >= 0:
                 raw = raw[:null_pos]
@@ -251,7 +329,6 @@ class WoWGameInterface(BaseGameInterface):
 
     def _generate_reaction(self, event, pet):
         etype = event.get('type')
-        # Sanitise any player-controlled data before it enters the prompt
         data = _sanitise(str(event.get('data', '')), max_len=128)
         if etype == 'chat':
             return f"[SYSTEM: React naturally to hearing someone say: {data}]"
@@ -275,9 +352,11 @@ class WoWGameInterface(BaseGameInterface):
         text = self._read_editbox_text()
         if text:
             try:
-                state = json.loads(text)
+                parsed = json.loads(text)
+                state = _validate_game_state(parsed)
             except json.JSONDecodeError:
-                state = {"raw_state": text[:500]}
+                # Sanitise the raw fallback before storing
+                state = {"raw_state": _sanitise(text[:500])}
         self._poll_combat_log_fallback()
         if self.combat_events:
             state['combat_events'] = self.combat_events[-5:]
@@ -287,10 +366,11 @@ class WoWGameInterface(BaseGameInterface):
 
     def _poll_combat_log_fallback(self):
         """Fallback if watchdog is not available."""
-        if WATCHDOG_AVAILABLE or not self.combat_log_path:
+        if WATCHDOG_AVAILABLE or not self._combat_log_path_validated:
             return
+        path = self._combat_log_path_validated
         try:
-            with open(self.combat_log_path, 'r', encoding='utf-8', errors='replace') as f:
+            with open(path, 'r', encoding='utf-8', errors='replace') as f:
                 if self.combat_log_offset == 0:
                     f.seek(0, 2)
                     self.combat_log_offset = f.tell()
@@ -346,7 +426,6 @@ class WoWGameInterface(BaseGameInterface):
     def get_system_prompt(self):
         state = self.load_game_state()
         pet = state.get('pet', {})
-        # Sanitise all player/game-controlled strings before prompt injection
         name = _sanitise(pet.get('name', 'Companion'), max_len=64)
         family = _sanitise(pet.get('family', 'Unknown'), max_len=64)
         token = _sanitise(pet.get('pet_token', 'PET'), max_len=16)
@@ -388,7 +467,6 @@ class WoWGameInterface(BaseGameInterface):
                       "You feel the wind in your... well, you have no hair, but it feels good.")
 
         nearby = state.get('nearby', {})
-        # Sanitise all player-name lists (other players can set their own names)
         players = [_sanitise(p, max_len=48) for p in nearby.get('players', [])]
         hostiles = [_sanitise(h, max_len=48) for h in nearby.get('hostile', [])]
         npcs = [_sanitise(n, max_len=48) for n in nearby.get('npcs', [])]
@@ -552,13 +630,16 @@ class WoWGameInterface(BaseGameInterface):
         text = queue_output[1]
 
         if WINSOUND_AVAILABLE and os.path.exists(audio_filepath):
-            try:
-                winsound.PlaySound(
-                    audio_filepath,
-                    winsound.SND_FILENAME | winsound.SND_ASYNC
-                )
-            except OSError as e:
-                print(f"[ERROR] Audio playback failed: {e}")
+            if not _is_safe_audio_path(audio_filepath):
+                print(f"[WARN] Audio path outside allowed directory, skipping: {audio_filepath}")
+            else:
+                try:
+                    winsound.PlaySound(
+                        audio_filepath,
+                        winsound.SND_FILENAME | winsound.SND_ASYNC
+                    )
+                except OSError as e:
+                    print(f"[ERROR] Audio playback failed: {e}")
         else:
             print(f"[WARN] Cannot play audio: {audio_filepath}")
 
