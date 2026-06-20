@@ -1,10 +1,10 @@
 repos:
-  - repo: https://github.com/JohnnyMorganz/luacheck-precommit
-    rev: v1.1.0
+  - repo: https://github.com/Calinou/pre-commit-luacheck
+    rev: master
     hooks:
       - id: luacheck
         args: ["--config", ".luacheckrc"]
-        stages: [commit]
+        stages: [pre-commit]
 
   - repo: local
     hooks:
@@ -14,4 +14,4 @@ repos:
         language: system
         pass_filenames: false
         always_run: true
-        stages: [push]
+        stages: [pre-push]
