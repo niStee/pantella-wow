@@ -32,7 +32,7 @@ jobs:
         run: |
           # Single zip containing both the WoW addon and the Pantella plugin.
           # Structure mirrors exactly what the user needs to copy:
-          #   MantellaWoW/  -> WoW/Interface/AddOns/
+          #   MantellaWoW/           -> WoW/Interface/AddOns/
           #   game_interfaces/wow.py -> <Pantella>/game_interfaces/
           #   interface_configs/     -> <Pantella>/interface_configs/
           #   character_db/          -> <Pantella>/character_db/
@@ -55,6 +55,9 @@ jobs:
           echo "=== Zip contents ==="
           unzip -l ${{ steps.version.outputs.zip_name }}
 
+      # ------------------------------------------------------------------ #
+      # STEP 1 — Attach zip to the GitHub Release
+      # ------------------------------------------------------------------ #
       - name: Attach zip to GitHub Release
         if: github.event_name == 'release'
         uses: softprops/action-gh-release@v2
@@ -63,6 +66,9 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      # ------------------------------------------------------------------ #
+      # STEP 2 — Upload full zip (addon + plugin) to Nexus Mods
+      # ------------------------------------------------------------------ #
       - name: Upload to Nexus Mods
         uses: Nexus-Mods/upload-action@main
         with:
@@ -75,3 +81,31 @@ jobs:
             One zip contains everything: the WoW addon (MantellaWoW/) and the Pantella plugin (game_interfaces/wow.py).
             Full install instructions and changelog: https://github.com/niStee/pantella-wow/releases/tag/${{ steps.version.outputs.version }}
           version: ${{ steps.version.outputs.version }}
+
+      # ------------------------------------------------------------------ #
+      # STEP 3 — CurseForge (DISABLED — uncomment when ready for broader
+      #           WoW audience discovery. Also requires:
+      #             - Secret:   CURSEFORGE_TOKEN
+      #             - Variable: CURSEFORGE_PROJECT_ID
+      #           The zip uploaded here contains ONLY MantellaWoW/ (the Lua
+      #           addon). It links back to Nexus for the full install.
+      # ------------------------------------------------------------------ #
+      # - name: Build CurseForge addon-only zip
+      #   run: |
+      #     cd MantellaWoW
+      #     zip -r ../MantellaWoW-${{ steps.version.outputs.version }}.zip .
+      #
+      # - name: Upload to CurseForge
+      #   uses: itsmeow/curseforge-upload@v3
+      #   with:
+      #     token: ${{ secrets.CURSEFORGE_TOKEN }}
+      #     project_id: ${{ vars.CURSEFORGE_PROJECT_ID }}
+      #     game_endpoint: wow
+      #     file_path: MantellaWoW-${{ steps.version.outputs.version }}.zip
+      #     display_name: "MantellaWoW ${{ steps.version.outputs.version }}"
+      #     game_versions: "Retail"
+      #     release_type: beta
+      #     changelog: |
+      #       This addon requires Mantella or Pantella to function.
+      #       Full installation guide and download: https://www.nexusmods.com/worldofwarcraft/mods/YOUR_MOD_ID
+      #     changelog_type: markdown
