@@ -1,0 +1,8 @@
+# Pantella WoW Bridge Requirements
+# Run on Windows Native (NOT WSL)
+
+# Windows-specific: pywin32 for EditBox scraping
+pywin32>=306
+
+# Combat log tailing
+watchdog>=3.0.0

@@ -1,163 +1,126 @@
-import os
-import time
 import json
-import pyperclip
+import time
+import os
 from .base_interface import BaseGameInterface
 
-class WoWGameInterface(BaseGameInterface):
-    """Reads WoW state from Clipboard and CombatLog and maps to Pantella format."""
+try:
+    import win32gui
+    import win32con
+    WIN32_AVAILABLE = True
+except ImportError:
+    WIN32_AVAILABLE = False
+    print("[WARN] pywin32 not available. EditBox scraping will not work.")
 
+class WoWGameInterface(BaseGameInterface):
     def __init__(self, conversation_manager):
         super().__init__(conversation_manager, valid_games=['wow'], interface_slug='wow')
-        self.wow_account = self._find_wow_account()
-        # Find Logs directory which is a sibling to WTF
-        self.wow_root = os.path.dirname(os.path.dirname(self.wow_account))
-        self.combat_log_file = os.path.join(self.wow_root, 'Logs', 'WoWCombatLog.txt')
-        self.save_file = os.path.join(
-            self.wow_account, 'SavedVariables', 'MantellaWoW.lua'
-        )
-        self.last_modified = 0
-        self.last_clipboard_text = ""
-        self.combat_log_pos = 0
-        self.recent_combat_events = []
-        
-        # Seek to the end of combat log on init
-        if os.path.exists(self.combat_log_file):
-            self.combat_log_pos = os.path.getsize(self.combat_log_file)
-            
-        # Initial load from SavedVariables for persistence
-        self._load_saved_variables()
+        self.wow_window = None
+        self.editbox_hwnd = None
+        self.combat_log_path = self._find_combat_log()
+        self.combat_log_offset = 0
+        self.combat_events = []
 
-    def _find_wow_account(self):
-        """Find WoW WTF directory. Supports Retail and Classic."""
-        wow_paths = [
-            os.path.expandvars(r'%PROGRAMFILES(X86)%\World of Warcraft\_retail_\WTF\Account'),
-            os.path.expandvars(r'%PROGRAMFILES(X86)%\World of Warcraft\_classic_\WTF\Account'),
-            os.path.expandvars(r'%PROGRAMFILES(X86)%\World of Warcraft\_classic_era_\WTF\Account'),
-            os.path.expandvars(r'%PROGRAMFILES%\World of Warcraft\_retail_\WTF\Account'),
-            os.path.expandvars(r'%PROGRAMFILES%\World of Warcraft\_classic_\WTF\Account'),
-            # Linux via Wine/Proton
-            os.path.expanduser('~/.wine/drive_c/Program Files/World of Warcraft/_retail_/WTF/Account'),
-            os.path.expanduser('~/.wine/drive_c/Program Files/World of Warcraft/_classic_/WTF/Account'),
+    def _find_combat_log(self):
+        paths = [
+            r"C:\Program Files (x86)\World of Warcraft\_retail_\Logs\WoWCombatLog.txt",
+            r"C:\Program Files\World of Warcraft\_retail_\Logs\WoWCombatLog.txt",
+            r"C:\Program Files (x86)\World of Warcraft\_classic_\Logs\WoWCombatLog.txt",
         ]
+        for p in paths:
+            if os.path.exists(p):
+                return p
+        return None
 
-        for path in wow_paths:
-            if os.path.exists(path):
-                # Find the first account folder
-                accounts = [d for d in os.listdir(path) if os.path.isdir(os.path.join(path, d))]
-                if accounts:
-                    return os.path.join(path, accounts[0])
+    def _find_wow_window(self):
+        if not WIN32_AVAILABLE:
+            return None
+        self.wow_window = win32gui.FindWindow("GxWindowClass", None)
+        if not self.wow_window:
+            return None
 
-        # Default fallback
-        return os.path.expanduser('~/WoW/WTF/Account/ACCOUNTNAME')
+        def enum_child(hwnd, extra):
+            if win32gui.GetClassName(hwnd) == "Edit":
+                if win32gui.GetWindowText(hwnd) == "MantellaWoW_State":
+                    self.editbox_hwnd = hwnd
+                    return False
+            return True
 
-    def _load_saved_variables(self):
-        """Read MantellaWoW.lua SavedVariables for initial persistent state."""
-        if not os.path.exists(self.save_file):
-            return
+        win32gui.EnumChildWindows(self.wow_window, enum_child, None)
+        return self.editbox_hwnd
+
+    def _read_editbox_text(self):
+        if not WIN32_AVAILABLE or not self.editbox_hwnd:
+            self.editbox_hwnd = self._find_wow_window()
+            if not self.editbox_hwnd:
+                return None
         try:
-            with open(self.save_file, 'r', encoding='utf-8') as f:
-                content = f.read()
-                # Basic JSON extraction if stored as string
-        except (IOError, OSError):
-            pass
+            length = win32gui.SendMessage(self.editbox_hwnd, win32con.WM_GETTEXTLENGTH, 0, 0)
+            if length == 0:
+                return None
+            buffer = win32gui.PyMakeBuffer(length + 1)
+            win32gui.SendMessage(self.editbox_hwnd, win32con.WM_GETTEXT, length + 1, buffer)
+            return str(buffer, 'utf-8').strip('\x00')
+        except Exception as e:
+            print(f"[ERROR] Failed to read EditBox: {e}")
+            self.editbox_hwnd = None
+            return None
 
     def _poll_combat_log(self):
-        """Tail the WoWCombatLog.txt for new combat events."""
-        if not os.path.exists(self.combat_log_file):
+        if not self.combat_log_path or not os.path.exists(self.combat_log_path):
             return
-
-        current_size = os.path.getsize(self.combat_log_file)
-        if current_size < self.combat_log_pos:
-            # File was truncated/rolled over
-            self.combat_log_pos = 0
-
-        if current_size == self.combat_log_pos:
-            return
-
         try:
-            with open(self.combat_log_file, 'r', encoding='utf-8') as f:
-                f.seek(self.combat_log_pos)
-                new_data = f.read()
-                self.combat_log_pos = f.tell()
-                
-                # Keep last 5 significant events
-                for line in new_data.split('\n'):
-                    if not line.strip(): continue
-                    # Basic filter for interesting events
-                    if "SPELL_CAST_SUCCESS" in line or "UNIT_DIED" in line:
-                        self.recent_combat_events.append(line.strip())
-                
-                # Keep list small
-                if len(self.recent_combat_events) > 5:
-                    self.recent_combat_events = self.recent_combat_events[-5:]
-        except (IOError, OSError):
-            pass
+            with open(self.combat_log_path, 'r', encoding='utf-8') as f:
+                if self.combat_log_offset == 0:
+                    f.seek(0, 2)
+                    self.combat_log_offset = f.tell()
+                    return
+                f.seek(self.combat_log_offset)
+                lines = f.readlines()
+                self.combat_log_offset = f.tell()
+                for line in lines:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    if 'SPELL_CAST_SUCCESS' in line or 'UNIT_DIED' in line:
+                        self.combat_events.append(line)
+                        if len(self.combat_events) > 5:
+                            self.combat_events.pop(0)
+        except Exception as e:
+            print(f"[ERROR] Combat log read failed: {e}")
 
     def load_game_state(self):
-        """Read state from clipboard and combat log."""
+        state = {}
+        text = self._read_editbox_text()
+        if text:
+            try:
+                state = json.loads(text)
+            except json.JSONDecodeError:
+                state = {"raw_state": text[:500]}
         self._poll_combat_log()
-        
-        try:
-            clipboard_text = pyperclip.paste()
-            if clipboard_text and clipboard_text.startswith("MANTELLA:"):
-                if clipboard_text != self.last_clipboard_text:
-                    self.last_clipboard_text = clipboard_text
-                    json_str = clipboard_text[9:]  # Remove prefix
-                    try:
-                        self.game_state.update(json.loads(json_str))
-                    except json.JSONDecodeError:
-                        pass
-        except Exception:
-            pass
-            
-        return self.game_state
+        if self.combat_events:
+            state['combat_events'] = self.combat_events[-5:]
+        self.game_state = state
+        return state
 
     def get_current_context_string(self):
-        """Build context string for LLM prompt."""
         state = self.load_game_state()
-
         ctx_parts = []
-
         if 'player_name' in state:
             ctx_parts.append(f"Player: {state['player_name']} (Level {state.get('player_level', '?')})")
-
         if 'zone' in state:
             ctx_parts.append(f"Zone: {state['zone']}")
-
         if 'in_combat' in state:
             ctx_parts.append(f"Combat: {'Yes' if state['in_combat'] else 'No'}")
-
-        if 'active_quests' in state:
-            quests = state['active_quests']
-            quest_names = []
-            for q in quests:
-                if isinstance(q, dict) and 'name' in q:
-                    quest_names.append(q['name'])
-            if quest_names:
-                ctx_parts.append(f"Active Quests: {', '.join(quest_names[:3])}")
-
-        if 'dbm_timers' in state:
-            timers = state['dbm_timers']
-            timer_msgs = []
-            for t in timers:
-                if isinstance(t, dict) and 'message' in t:
-                    timer_msgs.append(f"{t['message']} ({t.get('time_remaining', 0)}s)")
-            if timer_msgs:
-                ctx_parts.append(f"Boss Timers: {', '.join(timer_msgs[:3])}")
-
-        if 'recent_deaths' in state:
-            ctx_parts.append(f"Recent Encounter Deaths: {state['recent_deaths']}")
-            
-        if self.recent_combat_events:
-            ctx_parts.append("Recent Combat Log Events:")
-            for event in self.recent_combat_events:
-                # Truncate long combat log lines for context
-                ctx_parts.append(f" - {event[:100]}...")
-
+        if 'active_quests' in state and isinstance(state['active_quests'], list):
+            quests = state['active_quests'][:3]
+            ctx_parts.append(f"Active Quests: {', '.join(q.get('name', '?') for q in quests)}")
+        if 'dbm_timers' in state and isinstance(state['dbm_timers'], list):
+            timers = state['dbm_timers'][:3]
+            ctx_parts.append(f"Boss Timers: {', '.join(t.get('message', '?') for t in timers)}")
+        if 'combat_events' in state:
+            ctx_parts.append(f"Recent Combat: {len(state['combat_events'])} events")
         return '\n'.join(ctx_parts)
 
     def is_conversation_ended(self):
-        """Check if player logged out."""
         state = self.load_game_state()
-        return not state.get('player_name')
+        return not state.get('player_name') and self.editbox_hwnd is not None
