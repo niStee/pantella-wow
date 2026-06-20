@@ -17,6 +17,8 @@ class TestPromptBuilding:
                     iface = WoWGameInterface(mock_conversation_manager)
                     # Mock the overlay to avoid tkinter issues
                     iface.overlay = MagicMock()
+                    # Prevent load_game_state from overwriting mocked game_state
+                    iface.load_game_state = MagicMock(side_effect=lambda: getattr(iface, 'game_state', {}))
                     return iface
     
     def test_voidwalker_personality(self, interface):
@@ -53,7 +55,7 @@ class TestPromptBuilding:
     def test_mount_sub_personality_drake(self, interface):
         interface.game_state = {
             'pet': {
-                'name': 'Obsidian Worldbreaker',
+                'name': 'Obsidian Drake',
                 'family': 'Mount',
                 'pet_token': 'MOUNT',
                 'health': 100,
@@ -139,7 +141,7 @@ class TestRadiantTriggers:
         }
         triggers = interface.check_radiant_triggers()
         assert any(t['priority'] == 'urgent' for t in triggers)
-        assert any('Aargh' in t['text'] or 'died' in t['text'] for t in triggers)
+        assert any('essence fades' in t['text'] or 'died' in t['text'] for t in triggers)
         
     def test_no_duplicate_triggers(self, interface):
         """Same health should not trigger twice."""
