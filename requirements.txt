@@ -2,7 +2,7 @@
 # Run on Windows Native (NOT WSL)
 
 # Windows-specific: pywin32 for EditBox scraping
-pywin32>=306
+pywin32>=312
 
 # Combat log tailing
 watchdog>=3.0.0
