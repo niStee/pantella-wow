@@ -1,0 +1,5 @@
+pytest
+pytest-mock
+mypy
+types-mock
+watchdog
