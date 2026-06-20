@@ -3,6 +3,8 @@ import time
 import os
 import threading
 from .base_interface import BaseGameInterface
+from watchdog.observers import Observer
+from watchdog.events import FileSystemEventHandler
 
 try:
     import win32gui
@@ -10,6 +12,15 @@ try:
     WIN32_AVAILABLE = True
 except ImportError:
     WIN32_AVAILABLE = False
+
+class CombatLogHandler(FileSystemEventHandler):
+    def __init__(self, interface):
+        self.interface = interface
+        self.last_size = 0
+        
+    def on_modified(self, event):
+        if event.src_path == self.interface.combat_log_path:
+            self.interface._read_combat_log_delta()
 
 class WoWGameInterface(BaseGameInterface):
     def __init__(self, conversation_manager):
@@ -33,6 +44,52 @@ class WoWGameInterface(BaseGameInterface):
         # Radiant queue
         self.radiant_queue = []
         
+        self._init_combat_log_watcher()
+        
+    def _init_combat_log_watcher(self):
+        if not self.combat_log_path:
+            return
+        self._combat_handler = CombatLogHandler(self)
+        self._combat_observer = Observer()
+        self._combat_observer.schedule(
+            self._combat_handler, 
+            path=os.path.dirname(self.combat_log_path),
+            recursive=False
+        )
+        self._combat_observer.start()
+        
+    def _read_combat_log_delta(self):
+        """Read only NEW bytes since last check."""
+        try:
+            current_size = os.path.getsize(self.combat_log_path)
+            if current_size <= self.combat_log_offset:
+                return
+            with open(self.combat_log_path, 'r', encoding='utf-8') as f:
+                f.seek(self.combat_log_offset)
+                lines = f.readlines()
+                self.combat_log_offset = f.tell()
+                for line in lines:
+                    line = line.strip()
+                    if 'SPELL_CAST_SUCCESS' in line or 'UNIT_DIED' in line or 'SPELL_AURA_APPLIED' in line:
+                        self.combat_events.append(line)
+                        if len(self.combat_events) > 5:
+                            self.combat_events.pop(0)
+        except Exception as e:
+            print(f"[ERROR] Combat log delta read: {e}")
+
+    def __del__(self):
+        if hasattr(self, '_combat_observer'):
+            self._combat_observer.stop()
+            self._combat_observer.join()
+
+    def shutdown(self):
+        """Call this when Pantella exits."""
+        if self.overlay:
+            self.overlay.stop()
+        if hasattr(self, '_combat_observer'):
+            self._combat_observer.stop()
+            self._combat_observer.join()
+            
     def _init_overlay(self):
         """Start the Tkinter overlay."""
         try:
@@ -91,29 +148,6 @@ class WoWGameInterface(BaseGameInterface):
             self.editbox_hwnd = None
             return None
     
-    def _poll_combat_log(self):
-        if not self.combat_log_path or not os.path.exists(self.combat_log_path):
-            return
-        try:
-            with open(self.combat_log_path, 'r', encoding='utf-8') as f:
-                if self.combat_log_offset == 0:
-                    f.seek(0, 2)
-                    self.combat_log_offset = f.tell()
-                    return
-                f.seek(self.combat_log_offset)
-                lines = f.readlines()
-                self.combat_log_offset = f.tell()
-                for line in lines:
-                    line = line.strip()
-                    if not line:
-                        continue
-                    if 'SPELL_CAST_SUCCESS' in line or 'UNIT_DIED' in line or 'SPELL_AURA_APPLIED' in line:
-                        self.combat_events.append(line)
-                        if len(self.combat_events) > 5:
-                            self.combat_events.pop(0)
-        except Exception as e:
-            print(f"[ERROR] Combat log read failed: {e}")
-    
     def load_game_state(self):
         """Read state AND check for urgent radiant triggers."""
         state = {}
@@ -124,7 +158,6 @@ class WoWGameInterface(BaseGameInterface):
             except json.JSONDecodeError:
                 state = {"raw_state": text[:500]}
         
-        self._poll_combat_log()
         if self.combat_events:
             state['combat_events'] = self.combat_events[-5:]
         
@@ -189,7 +222,7 @@ Never break character. Never mention you are an AI or a program."""
     
     def check_radiant_triggers(self):
         """Check for events that should trigger proactive dialogue."""
-        state = self.load_game_state()
+        state = getattr(self, 'game_state', {})
         pet = state.get('pet', {})
         triggers = []
         
@@ -242,13 +275,10 @@ Never break character. Never mention you are an AI or a program."""
                 })
             self.last_dbm_timers[timer_id] = time_remaining
             
-        # Player death
-        # (Would need to track from combat log)
-        
         return triggers
     
     def get_current_context_string(self):
-        state = self.load_game_state()
+        state = getattr(self, 'game_state', {})
         ctx_parts = []
         
         if 'player_name' in state:
@@ -272,5 +302,5 @@ Never break character. Never mention you are an AI or a program."""
         return '\n'.join(ctx_parts)
     
     def is_conversation_ended(self):
-        state = self.load_game_state()
+        state = getattr(self, 'game_state', {})
         return not state.get('player_name') and self.editbox_hwnd is not None
