@@ -1,0 +1,73 @@
+name: Release
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version number (e.g. v1.0.0)'
+        required: true
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set version
+        id: version
+        run: |
+          VERSION=${{ github.event.release.tag_name || github.event.inputs.version }}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "zip_name=pantella-wow-${VERSION}.zip" >> $GITHUB_OUTPUT
+
+      - name: Build release zip
+        run: |
+          # Create staging directory with clean mod structure
+          mkdir -p staging/game_interfaces
+          mkdir -p staging/interface_configs
+          mkdir -p staging/character_db
+          mkdir -p staging/MantellaWoW
+
+          # Copy only files needed by end users
+          cp game_interfaces/wow.py staging/game_interfaces/
+          cp -r interface_configs/ staging/
+          cp -r character_db/ staging/
+          cp -r MantellaWoW/ staging/
+          cp metadata.json staging/
+          cp README.md staging/
+
+          # Build the zip from staging (no tests/, no .github/, no dev deps)
+          cd staging
+          zip -r ../${{ steps.version.outputs.zip_name }} .
+          cd ..
+
+          echo "Built ${{ steps.version.outputs.zip_name }}"
+          unzip -l ${{ steps.version.outputs.zip_name }}
+
+      - name: Attach zip to GitHub Release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ steps.version.outputs.zip_name }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload to Nexus Mods
+        uses: Nexus-Mods/upload-action@main
+        with:
+          api_key: ${{ secrets.NEXUSMODS_API_KEY }}
+          file_id: ${{ vars.NEXUSMODS_FILE_ID }}
+          filename: ${{ steps.version.outputs.zip_name }}
+          display_name: "Pantella WoW - ${{ steps.version.outputs.version }}"
+          description: |
+            World of Warcraft integration for Pantella AI NPC framework.
+            See full changelog on GitHub: https://github.com/niStee/pantella-wow/releases/tag/${{ steps.version.outputs.version }}
+          version: ${{ steps.version.outputs.version }}
