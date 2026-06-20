@@ -1,0 +1,10 @@
+{
+  "interface": "wow",
+  "game": "World of Warcraft",
+  "stt": "whisper",
+  "tts": "piper",
+  "llm": "openai",
+  "model": "gpt-4o",
+  "save_file": "WTF/Account/<ACCOUNT>/SavedVariables/MantellaWoW.lua",
+  "polling_interval": 2.0
+}
