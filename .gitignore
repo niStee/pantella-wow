@@ -1,8 +1,10 @@
 __pycache__/
 *.pyc
 *.pyo
+*.pyd
 *.egg-info/
-__init__.py
-.gitmodules
-venv/
 .pytest_cache/
+venv/
+.env
+tests/__pycache__/
+game_interfaces/__pycache__/
