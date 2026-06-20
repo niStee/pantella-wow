@@ -115,6 +115,7 @@ class WoWGameInterface(BaseGameInterface):
             print(f"[ERROR] Combat log read failed: {e}")
     
     def load_game_state(self):
+        """Read state AND check for urgent radiant triggers."""
         state = {}
         text = self._read_editbox_text()
         if text:
@@ -122,11 +123,29 @@ class WoWGameInterface(BaseGameInterface):
                 state = json.loads(text)
             except json.JSONDecodeError:
                 state = {"raw_state": text[:500]}
+        
         self._poll_combat_log()
         if self.combat_events:
             state['combat_events'] = self.combat_events[-5:]
+        
         self.game_state = state
+        
+        # Check radiant triggers IMMEDIATELY after state update
+        # This ensures they fire before any LLM blocking
+        self._process_radiant_triggers()
+        
         return state
+    
+    def _process_radiant_triggers(self):
+        """Process radiant triggers and update overlay."""
+        triggers = self.check_radiant_triggers()
+        for trigger in triggers:
+            # Update overlay immediately
+            self._update_overlay(trigger['text'], trigger['color'])
+            
+            # If you want to also queue for TTS, you can set a flag
+            # that the main loop reads BEFORE calling the LLM
+            self.radiant_queue.append(trigger['text'])
     
     def get_system_prompt(self):
         """Build personality prompt based on pet type."""
