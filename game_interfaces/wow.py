@@ -2,8 +2,15 @@ import json
 import time
 import os
 import threading
+import sys
+import os
+
+addon_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if addon_root not in sys.path:
+    sys.path.append(addon_root)
+
 from src.game_interfaces.base_interface import BaseGameInterface
-from overlay import OverlayManager
+from overlay import TkinterOverlay
 
 valid_games = ["wow"]
 interface_slug = "wow_game_interface"
