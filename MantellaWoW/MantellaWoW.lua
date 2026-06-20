@@ -58,63 +58,100 @@ local function InitializeAddon()
 end
 
 -- Pet detection
-local function GetPetInfo()
-    -- Primary: HasPetSpells is reliable for all pet classes
-    local hasSpells, petToken = HasPetSpells()
-    if not hasSpells then
-        return nil
-    end
-    
-    -- Fallback: check if we can at least get a name
-    local name = UnitName("pet")
-    if not name or name == "" then
-        return nil
-    end
-    
-    -- Health: Use UnitHealthPercent (Retail 12.0+ safe API)
-    -- This returns a value formatted for display, not raw health
-    local health = 100
-    local isDead = UnitIsDead("pet") or UnitIsDeadOrGhost("pet")
-    
-    if not isDead then
-        -- UnitHealthPercent returns a displayable percentage
-        -- We can format it to a number but cannot do arithmetic on it
-        local success, result = pcall(function()
-            local pct = UnitHealthPercent("pet", true, CurveConstants.ScaleTo100)
-            if pct then
-                -- pct is a number 0-100, but it's a "secret" type
-                -- We can only format it to a string, then parse back
-                local str = string.format("%.0f", pct)
-                return tonumber(str)
+local function GetCurrentCompanion()
+    -- Priority 1: Active mount
+    if IsMounted() then
+        local mountName = "Mount"
+        -- Find mount aura on player (aura name is usually the mount name)
+        for i = 1, 40 do
+            local name, icon, _, _, _, _, _, _, _, spellId = UnitAura("player", i)
+            if name and spellId then
+                -- Verify it's actually a mount via C_MountJournal
+                local mountID = C_MountJournal.GetMountFromSpell(spellId)
+                if mountID then
+                    mountName = name
+                    break
+                end
             end
-            return 100
-        end)
-        if success and result then
-            health = result
         end
-    else
-        health = 0
+        
+        return {
+            name = mountName,
+            family = "Mount",
+            type = "Mount",
+            health = 100,
+            is_dead = false,
+            is_attacking = false,
+            target = nil,
+            pet_token = "MOUNT"
+        }
     end
     
-    -- Creature info
-    local creatureType = UnitCreatureType("pet") or "Unknown"
-    local family = UnitCreatureFamily("pet") or "Unknown"
-    
-    -- For demons, family is nil, use creatureType or name
-    if petToken == "DEMON" or family == "Unknown" then
-        family = creatureType
+    -- Priority 2: Combat pet
+    local hasSpells, petToken = HasPetSpells()
+    if hasSpells then
+        local name = UnitName("pet")
+        if name and name ~= "" then
+            local creatureType = UnitCreatureType("pet") or "Unknown"
+            local family = UnitCreatureFamily("pet") or "Unknown"
+            if petToken == "DEMON" or family == "Unknown" then
+                family = creatureType
+            end
+            
+            local health = 100
+            local isDead = UnitIsDead("pet") or false
+            if not isDead then
+                local success, result = pcall(function()
+                    local pct = UnitHealthPercent("pet", true, CurveConstants.ScaleTo100)
+                    if pct then
+                        return tonumber(string.format("%.0f", pct))
+                    end
+                    return 100
+                end)
+                if success and result then
+                    health = result
+                end
+            else
+                health = 0
+            end
+            
+            return {
+                name = name,
+                family = family,
+                type = creatureType,
+                health = health,
+                is_dead = isDead,
+                is_attacking = UnitAffectingCombat("pet") or false,
+                target = UnitName("pettarget") or nil,
+                pet_token = petToken
+            }
+        end
     end
     
-    return {
-        name = name,
-        family = family,
-        type = creatureType,
-        health = health,
-        is_dead = isDead,
-        is_attacking = UnitAffectingCombat("pet") or false,
-        target = UnitName("pettarget") or nil,
-        pet_token = petToken
-    }
+    -- Priority 3: Companion pet (vanity)
+    local petGUID = C_PetJournal.GetSummonedPetGUID()
+    if petGUID then
+        local speciesID, customName, level, _, _, _, _, _, _, _ = C_PetJournal.GetPetInfoByPetID(petGUID)
+        local name = customName
+        if not name or name == "" then
+            -- Get default name from species
+            local speciesName, _, _, _, _, _, _, _, _ = C_PetJournal.GetPetInfoBySpeciesID(speciesID)
+            name = speciesName or "Companion"
+        end
+        
+        return {
+            name = name,
+            family = "Companion",
+            type = "Companion",
+            health = 100,
+            is_dead = false,
+            is_attacking = false,
+            target = nil,
+            pet_token = "COMPANION"
+        }
+    end
+    
+    return nil  -- No companion
 end
 
 -- Hidden EditBox for state export
@@ -174,26 +211,24 @@ local function UpdateDBMState()
     end
 end
 
-local function UpdatePetState()
-    local db = MantellaWoWDB
-    local pet = GetPetInfo()
-    
-    if pet then
-        db.pet = pet
-        db.companion_name = pet.name
-        db.companion_type = pet.family
-    else
-        db.pet = { name = "Companion", family = "Unknown", type = "Unknown", health = 100, is_dead = false, is_attacking = false, target = nil }
-        db.companion_name = "Companion"
-        db.companion_type = "Unknown"
-    end
-end
-
 local function OnUpdate()
     UpdatePlayerState()
     UpdateQuestState()
     UpdateDBMState()
-    UpdatePetState()
+    
+    local companion = GetCurrentCompanion()
+    if companion then
+        MantellaWoWDB.pet = companion
+        MantellaWoWDB.companion_name = companion.name
+        MantellaWoWDB.companion_type = companion.family
+    else
+        MantellaWoWDB.pet = {
+            name = "Spirit", family = "Unknown", type = "Unknown",
+            health = 100, is_dead = false, is_attacking = false
+        }
+        MantellaWoWDB.companion_name = "Spirit"
+        MantellaWoWDB.companion_type = "Unknown"
+    end
     
     local json = ToJSON(MantellaWoWDB)
     stateFrame:SetText(json)
