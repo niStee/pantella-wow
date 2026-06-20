@@ -1,5 +1,6 @@
 import json
 import os
+import re
 import threading
 import sys
 
@@ -37,6 +38,32 @@ try:
 except ImportError:
     WATCHDOG_AVAILABLE = False
     FileSystemEventHandler = object  # type: ignore
+
+
+# ── Prompt Injection Sanitisation ───────────────────────────────────────────
+# Patterns commonly used to hijack LLM system prompts via untrusted user input
+_PROMPT_INJECTION_RE = re.compile(
+    r'(\[INST\]'
+    r'|<\|system\|>'
+    r'|<\|im_start\|>'
+    r'|<\|im_end\|>'
+    r'|###\s*(system|assistant|user)'
+    r'|ignore\s+(?:all\s+)?previous\s+instructions?'
+    r'|you\s+are\s+now'
+    r'|act\s+as\s+(?:an?\s+)?(?:AI|assistant|DAN)'
+    r'|jailbreak)',
+    re.IGNORECASE,
+)
+
+
+def _sanitise(value: str, max_len: int = 128) -> str:
+    """Strip control characters and prompt-injection patterns from a game string."""
+    if not isinstance(value, str):
+        return ""
+    value = value[:max_len]
+    value = re.sub(r'[\x00-\x1f\x7f]', '', value)   # strip control chars
+    value = _PROMPT_INJECTION_RE.sub('[REDACTED]', value)
+    return value.strip()
 
 
 class CombatLogHandler(FileSystemEventHandler):
@@ -224,7 +251,8 @@ class WoWGameInterface(BaseGameInterface):
 
     def _generate_reaction(self, event, pet):
         etype = event.get('type')
-        data = event.get('data', '')
+        # Sanitise any player-controlled data before it enters the prompt
+        data = _sanitise(str(event.get('data', '')), max_len=128)
         if etype == 'chat':
             return f"[SYSTEM: React naturally to hearing someone say: {data}]"
         if etype == 'zone':
@@ -239,7 +267,7 @@ class WoWGameInterface(BaseGameInterface):
             return "[SYSTEM: React to your master accepting a new quest.]"
         if etype == 'quest_complete':
             return "[SYSTEM: React to your master completing a quest.]"
-        return f"[SYSTEM: React to an unexpected event: {etype}]"
+        return f"[SYSTEM: React to an unexpected event: {_sanitise(str(etype), max_len=32)}]"
 
     # ── Core State Methods ──────────────────────────────────
     def load_game_state(self):
@@ -318,9 +346,12 @@ class WoWGameInterface(BaseGameInterface):
     def get_system_prompt(self):
         state = self.load_game_state()
         pet = state.get('pet', {})
-        name = pet.get('name', 'Companion')
-        family = pet.get('family', 'Unknown')
-        token = pet.get('pet_token', 'PET')
+        # Sanitise all player/game-controlled strings before prompt injection
+        name = _sanitise(pet.get('name', 'Companion'), max_len=64)
+        family = _sanitise(pet.get('family', 'Unknown'), max_len=64)
+        token = _sanitise(pet.get('pet_token', 'PET'), max_len=16)
+        zone = _sanitise(state.get('zone', 'an unknown place'), max_len=64)
+        lore = _sanitise(pet.get('lore', ''), max_len=256)
 
         personality = self.PET_PERSONALITIES.get(family, self.PET_PERSONALITIES['Unknown'])
 
@@ -332,7 +363,6 @@ class WoWGameInterface(BaseGameInterface):
                     break
 
         if token == 'COMPANION':
-            lore = pet.get('lore', '')
             if lore:
                 personality = (
                     f"You are {name}. {lore} "
@@ -358,9 +388,10 @@ class WoWGameInterface(BaseGameInterface):
                       "You feel the wind in your... well, you have no hair, but it feels good.")
 
         nearby = state.get('nearby', {})
-        players = nearby.get('players', [])
-        hostiles = nearby.get('hostile', [])
-        npcs = nearby.get('npcs', [])
+        # Sanitise all player-name lists (other players can set their own names)
+        players = [_sanitise(p, max_len=48) for p in nearby.get('players', [])]
+        hostiles = [_sanitise(h, max_len=48) for h in nearby.get('hostile', [])]
+        npcs = [_sanitise(n, max_len=48) for n in nearby.get('npcs', [])]
 
         env_lines = []
         if players:
@@ -391,7 +422,7 @@ class WoWGameInterface(BaseGameInterface):
         return (
             f"You are {name}, {personality}\n"
             f"{status}\n"
-            f"Your master is in {state.get('zone', 'an unknown place')}.\n"
+            f"Your master is in {zone}.\n"
             f"{env_context}\n"
             f"RULE: {rule}\n"
             "You are a real entity in World of Warcraft, not an AI.\n"
@@ -407,7 +438,7 @@ class WoWGameInterface(BaseGameInterface):
         current_health = pet.get('health', 100)
         if current_health < 25 and self.last_pet_health >= 25:
             triggers.append({
-                'text': f"Master! I am dying... {pet.get('name', 'I')} cannot hold much longer!",
+                'text': f"Master! I am dying... {_sanitise(pet.get('name', 'I'), max_len=64)} cannot hold much longer!",
                 'priority': 'urgent',
                 'color': 'red'
             })
@@ -434,7 +465,7 @@ class WoWGameInterface(BaseGameInterface):
             time_remaining = timer.get('time_remaining', 999)
             if time_remaining < 5 and self.last_dbm_timers.get(timer_id, 999) >= 5:
                 triggers.append({
-                    'text': f"Danger! {timer.get('message', 'Unknown ability')} incoming!",
+                    'text': f"Danger! {_sanitise(timer.get('message', 'Unknown ability'), max_len=64)} incoming!",
                     'priority': 'urgent',
                     'color': 'red'
                 })
@@ -465,20 +496,23 @@ class WoWGameInterface(BaseGameInterface):
         ctx_parts = []
 
         if 'player_name' in state:
-            ctx_parts.append(f"Player: {state['player_name']} (Level {state.get('player_level', '?')})")
+            ctx_parts.append(f"Player: {_sanitise(state['player_name'], max_len=48)} (Level {state.get('player_level', '?')})")
         if 'zone' in state:
-            ctx_parts.append(f"Zone: {state['zone']}")
+            ctx_parts.append(f"Zone: {_sanitise(state['zone'], max_len=64)}")
         if 'in_combat' in state:
             ctx_parts.append(f"Combat: {'Yes' if state['in_combat'] else 'No'}")
         if 'pet' in state and isinstance(state['pet'], dict):
             pet = state['pet']
-            ctx_parts.append(f"Pet: {pet.get('name', '?')} ({pet.get('family', '?')}) - {pet.get('health', '?')}% HP")
+            ctx_parts.append(
+                f"Pet: {_sanitise(pet.get('name', '?'), max_len=48)} "
+                f"({_sanitise(pet.get('family', '?'), max_len=32)}) - {pet.get('health', '?')}% HP"
+            )
         if 'active_quests' in state and isinstance(state['active_quests'], list):
             quests = state['active_quests'][:3]
-            ctx_parts.append(f"Active Quests: {', '.join(q.get('name', '?') for q in quests)}")
+            ctx_parts.append(f"Active Quests: {', '.join(_sanitise(q.get('name', '?'), max_len=64) for q in quests)}")
         if 'dbm_timers' in state and isinstance(state['dbm_timers'], list):
             timers = state['dbm_timers'][:3]
-            ctx_parts.append(f"Boss Timers: {', '.join(t.get('message', '?') for t in timers)}")
+            ctx_parts.append(f"Boss Timers: {', '.join(_sanitise(t.get('message', '?'), max_len=64) for t in timers)}")
         if 'combat_events' in state:
             ctx_parts.append(f"Recent Combat: {len(state['combat_events'])} events")
 
