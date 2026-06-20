@@ -15,6 +15,20 @@ sys.modules['winsound'] = winsound_mock
 tkinter_mock = MagicMock()
 sys.modules['tkinter'] = tkinter_mock
 
+# Mock Pantella main repo imports
+src_mock = MagicMock()
+src_gi_mock = MagicMock()
+src_gi_base_mock = MagicMock()
+
+class DummyBaseInterface:
+    def __init__(self, *args, **kwargs):
+        pass
+
+src_gi_base_mock.BaseGameInterface = DummyBaseInterface
+sys.modules['src'] = src_mock
+sys.modules['src.game_interfaces'] = src_gi_mock
+sys.modules['src.game_interfaces.base_interface'] = src_gi_base_mock
+
 @pytest.fixture
 def mock_win32gui():
     win32gui_mock.reset_mock()

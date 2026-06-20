@@ -1,0 +1,9 @@
+# Pantella WoW Bridge Requirements - Source file
+# Edit this file, then run: pip-compile --generate-hashes requirements.in
+# Run on Windows Native (NOT WSL)
+
+# Windows-specific: pywin32 for EditBox scraping
+pywin32>=312
+
+# Combat log tailing
+watchdog>=6.0.0

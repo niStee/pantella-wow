@@ -2,15 +2,15 @@ import pytest
 import time
 from unittest.mock import MagicMock, patch
 
-from game_interfaces.overlay import TkinterOverlay
+from overlay import TkinterOverlay
 
 
 class TestOverlay:
     @pytest.fixture
     def overlay(self):
-        with patch('game_interfaces.overlay.tk.Tk'):
-            with patch('game_interfaces.overlay.tk.Frame'):
-                with patch('game_interfaces.overlay.tk.Label'):
+        with patch('overlay.tk.Tk'):
+            with patch('overlay.threading.Thread'):
+                with patch('overlay.tk.Label'):
                     o = TkinterOverlay(title="TestCompanion", width=400, height=120)
                     return o
     
