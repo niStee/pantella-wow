@@ -5,4 +5,4 @@
 pywin32>=306
 
 # Combat log tailing
-watchdog>=3.0.0
+watchdog>=6.0.0
