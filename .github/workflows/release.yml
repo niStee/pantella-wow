@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version number (e.g. v1.0.0)'
+        description: 'Version number (e.g. v0.1.0)'
         required: true
 
 jobs:
@@ -30,26 +30,29 @@ jobs:
 
       - name: Build release zip
         run: |
-          # Create staging directory with clean mod structure
+          # Single zip containing both the WoW addon and the Pantella plugin.
+          # Structure mirrors exactly what the user needs to copy:
+          #   MantellaWoW/  -> WoW/Interface/AddOns/
+          #   game_interfaces/wow.py -> <Pantella>/game_interfaces/
+          #   interface_configs/     -> <Pantella>/interface_configs/
+          #   character_db/          -> <Pantella>/character_db/
+          mkdir -p staging/MantellaWoW
           mkdir -p staging/game_interfaces
           mkdir -p staging/interface_configs
           mkdir -p staging/character_db
-          mkdir -p staging/MantellaWoW
 
-          # Copy only files needed by end users
+          cp -r MantellaWoW/. staging/MantellaWoW/
           cp game_interfaces/wow.py staging/game_interfaces/
-          cp -r interface_configs/ staging/
-          cp -r character_db/ staging/
-          cp -r MantellaWoW/ staging/
+          cp -r interface_configs/. staging/interface_configs/
+          cp -r character_db/. staging/character_db/
           cp metadata.json staging/
           cp README.md staging/
 
-          # Build the zip from staging (no tests/, no .github/, no dev deps)
           cd staging
           zip -r ../${{ steps.version.outputs.zip_name }} .
           cd ..
 
-          echo "Built ${{ steps.version.outputs.zip_name }}"
+          echo "=== Zip contents ==="
           unzip -l ${{ steps.version.outputs.zip_name }}
 
       - name: Attach zip to GitHub Release
@@ -66,8 +69,9 @@ jobs:
           api_key: ${{ secrets.NEXUSMODS_API_KEY }}
           file_id: ${{ vars.NEXUSMODS_FILE_ID }}
           filename: ${{ steps.version.outputs.zip_name }}
-          display_name: "Pantella WoW - ${{ steps.version.outputs.version }}"
+          display_name: "Pantella WoW ${{ steps.version.outputs.version }}"
           description: |
-            World of Warcraft integration for Pantella AI NPC framework.
-            See full changelog on GitHub: https://github.com/niStee/pantella-wow/releases/tag/${{ steps.version.outputs.version }}
+            World of Warcraft integration for the Mantella/Pantella AI NPC framework.
+            One zip contains everything: the WoW addon (MantellaWoW/) and the Pantella plugin (game_interfaces/wow.py).
+            Full install instructions and changelog: https://github.com/niStee/pantella-wow/releases/tag/${{ steps.version.outputs.version }}
           version: ${{ steps.version.outputs.version }}
