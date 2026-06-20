@@ -16,7 +16,8 @@ globals = {
     "GetTime", "UIParent", "DEFAULT_CHAT_FRAME", "print", "message",
     "tostring", "tonumber", "pcall", "pairs", "ipairs", "table", "math",
     "string", "select", "type", "QuestieDB", "QuestiePlayer", "DBM",
-    "CurveConstants", "MantellaWoWDB"
+    "CurveConstants", "MantellaWoWDB", "GetNumGroupMembers", "C_NamePlate",
+    "UnitIsPlayer", "UnitReaction"
 }
 
 -- Ignore whitespace issues
