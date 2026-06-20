@@ -1,7 +1,15 @@
 {
-  "name": "Pantella WoW",
-  "version": "1.0",
-  "author": "Antigravity",
-  "description": "World of Warcraft Companion Interface",
-  "has_game_interfaces": true
+    "name": "Pantella World of Warcraft",
+    "slug": "pantella-wow",
+    "version": "1.0.0",
+    "description": "World of Warcraft integration for Pantella with AI companions.",
+    "author": "niStee",
+    "url": "https://github.com/niStee/pantella-wow",
+    "entry_points": {
+        "game_interfaces": ["game_interfaces/wow.py"],
+        "conversation_managers": ["conversation_managers/wow_conversation_manager.py"],
+        "character_managers": ["character_managers/wow_character_manager.py"],
+        "character_generators": ["character_generators/wow_character_generator.py"],
+        "character_dbs": ["character_db/wow_character_db.py"]
+    }
 }

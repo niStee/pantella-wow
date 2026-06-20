@@ -1,0 +1,16 @@
+{
+    "default_prompt_style": "wow_prompt_style",
+    "conversation_manager_type": "wow_conversation_manager",
+    "interface_type": "wow_game_interface",
+    "behavior_manager": "default_behavior_manager",
+    "memory_manager": "chromadb_memory",
+    "character_type": "wow_character_generator",
+    "character_manager": "wow_character_manager",
+    "character_db": "wow_character_db",
+    "default_tts": "pocket_tts",
+    "default_narrator_voice": "narrator_voice_slug",
+    "settings": {
+        "save_file": "WTF/Account/<ACCOUNT>/SavedVariables/MantellaWoW.lua",
+        "polling_interval": 2.0
+    }
+}
