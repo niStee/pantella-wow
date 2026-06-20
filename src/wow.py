@@ -3,8 +3,6 @@ import time
 import os
 import threading
 from .base_interface import BaseGameInterface
-from watchdog.observers import Observer
-from watchdog.events import FileSystemEventHandler
 
 try:
     import win32gui
@@ -12,17 +10,33 @@ try:
     WIN32_AVAILABLE = True
 except ImportError:
     WIN32_AVAILABLE = False
+    print("[WARN] pywin32 not available. EditBox scraping will not work.")
+
+try:
+    import winsound
+    WINSOUND_AVAILABLE = True
+except ImportError:
+    WINSOUND_AVAILABLE = False
+
+try:
+    from watchdog.observers import Observer
+    from watchdog.events import FileSystemEventHandler
+    WATCHDOG_AVAILABLE = True
+except ImportError:
+    WATCHDOG_AVAILABLE = False
+
 
 class CombatLogHandler(FileSystemEventHandler):
     def __init__(self, interface):
         self.interface = interface
-        self.last_size = 0
-        
     def on_modified(self, event):
         if event.src_path == self.interface.combat_log_path:
             self.interface._read_combat_log_delta()
 
+
 class WoWGameInterface(BaseGameInterface):
+    """Windows-native WoW interface with pet integration, overlay, and radiant triggers."""
+    
     def __init__(self, conversation_manager):
         super().__init__(conversation_manager, valid_games=['wow'], interface_slug='wow')
         self.wow_window = None
@@ -36,30 +50,62 @@ class WoWGameInterface(BaseGameInterface):
         self.last_zone = ""
         self.last_death_count = 0
         self.last_dbm_timers = {}
+        self.pet_was_dead = False
+        
+        # Radiant queue
+        self.radiant_queue = []
         
         # Overlay
         self.overlay = None
         self._init_overlay()
         
-        # Radiant queue
-        self.radiant_queue = []
-        
+        # Watchdog combat log
+        self._combat_observer = None
         self._init_combat_log_watcher()
         
+    # ── Overlay ─────────────────────────────────────────────
+    def _init_overlay(self):
+        try:
+            from .overlay import TkinterOverlay
+            self.overlay = TkinterOverlay(title="Companion")
+            self.overlay.start()
+        except Exception as e:
+            print(f"[WARN] Overlay failed: {e}")
+            
+    def _update_overlay(self, text, color='white'):
+        if self.overlay:
+            self.overlay.update_text(text, color)
+            
+    def _update_overlay_title(self, title):
+        if self.overlay:
+            self.overlay.update_title(title)
+            
+    # ── Combat Log (Watchdog) ─────────────────────────────
+    def _find_combat_log(self):
+        paths = [
+            r"C:\Program Files (x86)\World of Warcraft\_retail_\Logs\WoWCombatLog.txt",
+            r"C:\Program Files\World of Warcraft\_retail_\Logs\WoWCombatLog.txt",
+            r"C:\Program Files (x86)\World of Warcraft\_classic_\Logs\WoWCombatLog.txt",
+            r"C:\Program Files\World of Warcraft\_classic_\Logs\WoWCombatLog.txt",
+        ]
+        for p in paths:
+            if os.path.exists(p):
+                return p
+        return None
+        
     def _init_combat_log_watcher(self):
-        if not self.combat_log_path:
+        if not WATCHDOG_AVAILABLE or not self.combat_log_path:
             return
-        self._combat_handler = CombatLogHandler(self)
+        handler = CombatLogHandler(self)
         self._combat_observer = Observer()
         self._combat_observer.schedule(
-            self._combat_handler, 
+            handler, 
             path=os.path.dirname(self.combat_log_path),
             recursive=False
         )
         self._combat_observer.start()
         
     def _read_combat_log_delta(self):
-        """Read only NEW bytes since last check."""
         try:
             current_size = os.path.getsize(self.combat_log_path)
             if current_size <= self.combat_log_offset:
@@ -70,52 +116,16 @@ class WoWGameInterface(BaseGameInterface):
                 self.combat_log_offset = f.tell()
                 for line in lines:
                     line = line.strip()
+                    if not line:
+                        continue
                     if 'SPELL_CAST_SUCCESS' in line or 'UNIT_DIED' in line or 'SPELL_AURA_APPLIED' in line:
                         self.combat_events.append(line)
                         if len(self.combat_events) > 5:
                             self.combat_events.pop(0)
         except Exception as e:
-            print(f"[ERROR] Combat log delta read: {e}")
-
-    def __del__(self):
-        if hasattr(self, '_combat_observer'):
-            self._combat_observer.stop()
-            self._combat_observer.join()
-
-    def shutdown(self):
-        """Call this when Pantella exits."""
-        if self.overlay:
-            self.overlay.stop()
-        if hasattr(self, '_combat_observer'):
-            self._combat_observer.stop()
-            self._combat_observer.join()
+            print(f"[ERROR] Combat log delta: {e}")
             
-    def _init_overlay(self):
-        """Start the Tkinter overlay."""
-        try:
-            from .overlay import TkinterOverlay
-            name = self.game_state.get('companion_name', 'Companion')
-            self.overlay = TkinterOverlay(title=name)
-            self.overlay.start()
-        except Exception as e:
-            print(f"[WARN] Overlay failed: {e}")
-            
-    def _update_overlay(self, text, color='white'):
-        """Update overlay if available."""
-        if self.overlay:
-            self.overlay.update_text(text, color)
-            
-    def _find_combat_log(self):
-        paths = [
-            r"C:\Program Files (x86)\World of Warcraft\_retail_\Logs\WoWCombatLog.txt",
-            r"C:\Program Files\World of Warcraft\_retail_\Logs\WoWCombatLog.txt",
-            r"C:\Program Files (x86)\World of Warcraft\_classic_\Logs\WoWCombatLog.txt",
-        ]
-        for p in paths:
-            if os.path.exists(p):
-                return p
-        return None
-    
+    # ── EditBox State Reading ───────────────────────────────
     def _find_wow_window(self):
         if not WIN32_AVAILABLE:
             return None
@@ -130,7 +140,7 @@ class WoWGameInterface(BaseGameInterface):
             return True
         win32gui.EnumChildWindows(self.wow_window, enum_child, None)
         return self.editbox_hwnd
-    
+        
     def _read_editbox_text(self):
         if not WIN32_AVAILABLE or not self.editbox_hwnd:
             self.editbox_hwnd = self._find_wow_window()
@@ -144,12 +154,12 @@ class WoWGameInterface(BaseGameInterface):
             win32gui.SendMessage(self.editbox_hwnd, win32con.WM_GETTEXT, length + 1, buffer)
             return str(buffer, 'utf-8').strip('\x00')
         except Exception as e:
-            print(f"[ERROR] Failed to read EditBox: {e}")
+            print(f"[ERROR] EditBox read: {e}")
             self.editbox_hwnd = None
             return None
-    
+            
+    # ── Core State Methods ──────────────────────────────────
     def load_game_state(self):
-        """Read state AND check for urgent radiant triggers."""
         state = {}
         text = self._read_editbox_text()
         if text:
@@ -157,31 +167,43 @@ class WoWGameInterface(BaseGameInterface):
                 state = json.loads(text)
             except json.JSONDecodeError:
                 state = {"raw_state": text[:500]}
-        
+        self._poll_combat_log_fallback()
         if self.combat_events:
             state['combat_events'] = self.combat_events[-5:]
-        
         self.game_state = state
-        
-        # Check radiant triggers IMMEDIATELY after state update
-        # This ensures they fire before any LLM blocking
         self._process_radiant_triggers()
-        
         return state
-    
+        
+    def _poll_combat_log_fallback(self):
+        """Fallback if watchdog is not available."""
+        if WATCHDOG_AVAILABLE or not self.combat_log_path:
+            return
+        try:
+            with open(self.combat_log_path, 'r', encoding='utf-8') as f:
+                if self.combat_log_offset == 0:
+                    f.seek(0, 2)
+                    self.combat_log_offset = f.tell()
+                    return
+                f.seek(self.combat_log_offset)
+                lines = f.readlines()
+                self.combat_log_offset = f.tell()
+                for line in lines:
+                    line = line.strip()
+                    if 'SPELL_CAST_SUCCESS' in line or 'UNIT_DIED' in line or 'SPELL_AURA_APPLIED' in line:
+                        self.combat_events.append(line)
+                        if len(self.combat_events) > 5:
+                            self.combat_events.pop(0)
+        except Exception as e:
+            print(f"[ERROR] Combat log fallback: {e}")
+            
     def _process_radiant_triggers(self):
-        """Process radiant triggers and update overlay."""
         triggers = self.check_radiant_triggers()
         for trigger in triggers:
-            # Update overlay immediately
             self._update_overlay(trigger['text'], trigger['color'])
-            
-            # If you want to also queue for TTS, you can set a flag
-            # that the main loop reads BEFORE calling the LLM
             self.radiant_queue.append(trigger['text'])
-    
+            
+    # ── Pet Personality ─────────────────────────────────────
     def get_system_prompt(self):
-        """Build personality prompt based on pet type."""
         state = self.load_game_state()
         pet = state.get('pet', {})
         name = pet.get('name', 'Companion')
@@ -219,14 +241,12 @@ Your master is in {state.get('zone', 'an unknown place')}.
 You are a real companion in World of Warcraft, not an AI assistant.
 Respond in character. Keep responses under 30 seconds of speech.
 Never break character. Never mention you are an AI or a program."""
-    
+            
     def check_radiant_triggers(self):
-        """Check for events that should trigger proactive dialogue."""
         state = getattr(self, 'game_state', {})
         pet = state.get('pet', {})
         triggers = []
         
-        # Pet health drop
         current_health = pet.get('health', 100)
         if current_health < 25 and self.last_pet_health >= 25:
             triggers.append({
@@ -242,7 +262,6 @@ Never break character. Never mention you are an AI or a program."""
             })
         self.last_pet_health = current_health
         
-        # Pet death
         if pet.get('is_dead') and not getattr(self, 'pet_was_dead', False):
             triggers.append({
                 'text': f"My essence fades... do not forget me, master...",
@@ -253,7 +272,6 @@ Never break character. Never mention you are an AI or a program."""
         elif not pet.get('is_dead'):
             self.pet_was_dead = False
             
-        # Zone change
         zone = state.get('zone', '')
         if zone and zone != self.last_zone:
             self.last_zone = zone
@@ -263,7 +281,6 @@ Never break character. Never mention you are an AI or a program."""
                 'color': 'cyan'
             })
             
-        # DBM timer (boss ability imminent)
         for timer in state.get('dbm_timers', []):
             timer_id = timer.get('id', '')
             time_remaining = timer.get('time_remaining', 999)
@@ -276,7 +293,7 @@ Never break character. Never mention you are an AI or a program."""
             self.last_dbm_timers[timer_id] = time_remaining
             
         return triggers
-    
+        
     def get_current_context_string(self):
         state = getattr(self, 'game_state', {})
         ctx_parts = []
@@ -300,7 +317,57 @@ Never break character. Never mention you are an AI or a program."""
             ctx_parts.append(f"Recent Combat: {len(state['combat_events'])} events")
             
         return '\n'.join(ctx_parts)
-    
+        
     def is_conversation_ended(self):
         state = getattr(self, 'game_state', {})
         return not state.get('player_name') and self.editbox_hwnd is not None
+        
+    # ── Required Pantella API Methods ───────────────────────
+    def enable_character_selection(self):
+        """Return available characters. WoW has no NPC selector, so return empty."""
+        return []
+        
+    def queue_actor_method(self, actor_character, method_name, *args):
+        """Handle animations/emotes. WoW has no actor system, so log to overlay."""
+        self._update_overlay(f"[{actor_character} does {method_name}]", "gray")
+        return True
+        
+    def end_conversation(self):
+        """Reset state when conversation ends."""
+        self.radiant_queue = []
+        self._update_overlay("Companion standing by...", "white")
+        return True
+        
+    def remove_from_conversation(self, character):
+        """Remove a character. Not applicable for WoW."""
+        return True
+        
+    async def send_audio_to_external_software(self, queue_output):
+        """Play the TTS audio file and update overlay."""
+        if not queue_output or len(queue_output) < 2:
+            return False
+            
+        audio_filepath = queue_output[0]
+        text = queue_output[1]
+        
+        # Play audio
+        if WINSOUND_AVAILABLE and os.path.exists(audio_filepath):
+            try:
+                winsound.PlaySound(audio_filepath, winsound.SND_FILENAME | winsound.SND_ASYNC)
+            except Exception as e:
+                print(f"[ERROR] Audio playback failed: {e}")
+        else:
+            print(f"[WARN] Cannot play audio: {audio_filepath}")
+            
+        # Update overlay with text
+        self._update_overlay(text, "yellow")
+        return True
+        
+    # ── Shutdown ────────────────────────────────────────────
+    def shutdown(self):
+        """Graceful cleanup."""
+        if self.overlay:
+            self.overlay.stop()
+        if self._combat_observer:
+            self._combat_observer.stop()
+            self._combat_observer.join()
