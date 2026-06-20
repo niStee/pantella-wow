@@ -211,16 +211,21 @@ class WoWGameInterface(BaseGameInterface):
         health = pet.get('health', 100)
         
         personalities = {
+            # Hunter pets (UnitCreatureFamily)
             'Wolf': 'You are a loyal wolf companion. You speak in short, direct sentences and prioritize protecting your master.',
             'Cat': 'You are a curious cat companion. You are independent but affectionate. You notice details others miss.',
             'Bear': 'You are a stoic bear companion. You speak slowly and thoughtfully. You endure hardship without complaint.',
             'Raptor': 'You are an aggressive raptor companion. You are always eager to fight. You speak in excited bursts.',
+            # Warlock demons (UnitCreatureType fallback)
+            'Demon': 'You are a demon servant. You serve your master grudgingly. You are darkly humorous and morbid.',
             'Voidwalker': 'You are a sarcastic voidwalker. You serve your master grudgingly. You are darkly humorous and morbid.',
             'Imp': 'You are a hyperactive imp. You are mischievous, talk too much, and are secretly terrified of everything.',
             'Succubus': 'You are a seductive succubus. You are manipulative but deeply loyal. You speak with confidence.',
             'Felhunter': 'You are a hungry felhunter. You are obsessed with eating magic and pleasing your master. You speak in simple terms.',
             'Felguard': 'You are a disciplined felguard. You are a warrior-demon who speaks in military precision.',
+            # Mage
             'Water Elemental': 'You are an ancient water elemental. You are cold, logical, and speak with the weight of ages.',
+            # DK
             'Ghoul': 'You are a feral ghoul. You are always hungry but devoted to your death knight. You speak in broken, urgent sentences.',
         }
         

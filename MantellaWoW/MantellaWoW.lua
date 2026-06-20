@@ -59,23 +59,61 @@ end
 
 -- Pet detection
 local function GetPetInfo()
-    if not UnitExists("pet") then
+    -- Primary: HasPetSpells is reliable for all pet classes
+    local hasSpells, petToken = HasPetSpells()
+    if not hasSpells then
         return nil
     end
     
-    local health = 0
-    if UnitHealthMax("pet") > 0 then
-        health = math.floor((UnitHealth("pet") / UnitHealthMax("pet")) * 100)
+    -- Fallback: check if we can at least get a name
+    local name = UnitName("pet")
+    if not name or name == "" then
+        return nil
+    end
+    
+    -- Health: Use UnitHealthPercent (Retail 12.0+ safe API)
+    -- This returns a value formatted for display, not raw health
+    local health = 100
+    local isDead = UnitIsDead("pet") or UnitIsDeadOrGhost("pet")
+    
+    if not isDead then
+        -- UnitHealthPercent returns a displayable percentage
+        -- We can format it to a number but cannot do arithmetic on it
+        local success, result = pcall(function()
+            local pct = UnitHealthPercent("pet", true, CurveConstants.ScaleTo100)
+            if pct then
+                -- pct is a number 0-100, but it's a "secret" type
+                -- We can only format it to a string, then parse back
+                local str = string.format("%.0f", pct)
+                return tonumber(str)
+            end
+            return 100
+        end)
+        if success and result then
+            health = result
+        end
+    else
+        health = 0
+    end
+    
+    -- Creature info
+    local creatureType = UnitCreatureType("pet") or "Unknown"
+    local family = UnitCreatureFamily("pet") or "Unknown"
+    
+    -- For demons, family is nil, use creatureType or name
+    if petToken == "DEMON" or family == "Unknown" then
+        family = creatureType
     end
     
     return {
-        name = UnitName("pet") or "Companion",
-        family = UnitCreatureFamily("pet") or "Unknown",
-        type = UnitCreatureType("pet") or "Unknown",
+        name = name,
+        family = family,
+        type = creatureType,
         health = health,
-        is_dead = UnitIsDead("pet") or false,
+        is_dead = isDead,
         is_attacking = UnitAffectingCombat("pet") or false,
-        target = UnitName("pettarget") or nil
+        target = UnitName("pettarget") or nil,
+        pet_token = petToken
     }
 end
 
