@@ -1,6 +1,6 @@
 # Pantella WoW Addon
 
-World of Warcraft integration for Pantella.
+World of Warcraft integration for Pantella. Experience real-time radiant AI conversations with NPCs and your pets directly inside the game, triggered dynamically by your Combat Log and in-game events!
 
 ## Installation
 
