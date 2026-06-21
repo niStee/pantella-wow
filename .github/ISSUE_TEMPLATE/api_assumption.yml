@@ -1,0 +1,75 @@
+name: "API Assumption / Schema Verification"
+description: "Track an unverified or incorrect API assumption in the codebase"
+title: "[API] <describe the assumption>"
+labels: ["api-assumption", "needs-verification"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template when you discover an API assumption that is unverified,
+        potentially wrong, or needs to be implemented in the Lua addon.
+
+  - type: input
+    id: location
+    attributes:
+      label: Location in codebase
+      description: "File and method/line where the assumption lives"
+      placeholder: "game_interfaces/wow.py — check_radiant_triggers (line ~210)"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: api_type
+    attributes:
+      label: API Type
+      options:
+        - Blizzard WoW Lua API
+        - WoW Event (e.g. ZONE_CHANGED_NEW_AREA)
+        - DBM (Deadly Boss Mods)
+        - BigWigs
+        - WeakAuras
+        - Win32 / Windows API
+        - Other third-party addon
+    validations:
+      required: true
+
+  - type: textarea
+    id: current_assumption
+    attributes:
+      label: Current (potentially wrong) assumption
+      description: "What does the code currently assume?"
+      placeholder: "timer['time_remaining'] exists as a float in the DBM timer object"
+    validations:
+      required: true
+
+  - type: textarea
+    id: real_api
+    attributes:
+      label: Real API (verified)
+      description: "What does the real API actually look like? Include a source URL."
+      placeholder: |
+        Real: DBM:RegisterCallback("DBM_TimerUpdate", function(timer, elapsed, total))
+        time_remaining = total - elapsed
+        Source: https://github.com/WeakAuras/WeakAuras2 (DBM trigger integration)
+    validations:
+      required: true
+
+  - type: textarea
+    id: required_work
+    attributes:
+      label: Required work to fix
+      description: "What needs to change in Python and/or Lua?"
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      options:
+        - label: Affected tests marked with @unittest.skip until fixed
+          required: false
+        - label: docs/API_ASSUMPTIONS.md updated with correct status
+          required: false
+        - label: Tracking issue linked in skip message
+          required: false
