@@ -1,5 +1,45 @@
 # Changelog
 
+## 1.0.0 (2026-06-21)
+
+
+### Features
+
+* add automated release workflow for GitHub + Nexus Mods ([978019b](https://github.com/niStee/pantella-wow/commit/978019bebf0cc42006bdbe208c9ca9630c39406e))
+* add support for vanity pets and mounts as companions ([d994743](https://github.com/niStee/pantella-wow/commit/d994743c26bc75fba4fb3144e6e3cc010a9f9028))
+* Add Tkinter Overlay, Radiant Triggers, and Pet Integration ([4382535](https://github.com/niStee/pantella-wow/commit/4382535a027e6242c5bea955df6c6e8dac123601))
+* Add WoW Companion Bridge with Clipboard and Combat Log integration ([e0da068](https://github.com/niStee/pantella-wow/commit/e0da0687610e286aff5eb180275fde883c871413))
+* automated GitHub + Nexus Mods release pipeline ([8a8a29a](https://github.com/niStee/pantella-wow/commit/8a8a29a7a0ce1b9caff2b4aeedd98de8f49f007d))
+* Implement Hybrid Rotating Buffer and Vibe Check ([66037ec](https://github.com/niStee/pantella-wow/commit/66037ec1c2f1be53084c89b7026d9a50b6b2c912))
+* implement missing Pantella API methods and winsound playback ([2588172](https://github.com/niStee/pantella-wow/commit/258817252e54617a8b94daeff90203db2c93a98b))
+* Windows-Native EditBox Scraping and Combat Log bridge ([7e8a181](https://github.com/niStee/pantella-wow/commit/7e8a181c3edbcfd05af4524996437c591d1c919c))
+
+
+### Bug Fixes
+
+* add LLM prompt injection sanitiser ([48f5b0c](https://github.com/niStee/pantella-wow/commit/48f5b0ce01725a4d7331871a02d58fedde889c4d))
+* add LLM prompt injection sanitiser to wow.py ([33daa63](https://github.com/niStee/pantella-wow/commit/33daa637bb7451e0c056c00862c585780a1d4459))
+* Add missing WoW API globals ([36d68f3](https://github.com/niStee/pantella-wow/commit/36d68f3bc48f1c3291c9ff06ea12d72249f62b11))
+* Add missing WoW API globals to luacheckrc ([7d29a80](https://github.com/niStee/pantella-wow/commit/7d29a809d491fc3077995700e32c08b7ca80b81f))
+* Code review issues raised by Kimi ([ef2c46d](https://github.com/niStee/pantella-wow/commit/ef2c46db7bd6c69a3a9dc27ee5a3c07290a0f213))
+* purge __pycache__ binaries, update .gitignore, add SECURITY.md ([b2d89a5](https://github.com/niStee/pantella-wow/commit/b2d89a5fe83751fa544c20ab1ecbb81ed04f245d))
+* resolve base_interface path and syntax errors ([c7303f1](https://github.com/niStee/pantella-wow/commit/c7303f109e837dbdd6da756fc6db0ea2bd06c981))
+* resolve CI failures for pytest paths and luacheck globals ([c3febc6](https://github.com/niStee/pantella-wow/commit/c3febc6c49ea72cfc3a3795ec2d61ffe3f3bc8d4))
+* Resolve CI Python 3.10 and type-checking failures ([fe27055](https://github.com/niStee/pantella-wow/commit/fe27055312efbc21c3366c87c9d6f9f228a919a1))
+* resolve CodeQL security alerts in wow.py ([0bc8fac](https://github.com/niStee/pantella-wow/commit/0bc8fac104f61c95088da8094326d9de1bdd524c))
+* resolve remaining pytest failures related to mocked test data ([02ba2ab](https://github.com/niStee/pantella-wow/commit/02ba2ab44a1f843ff49d96e074141709881a1f11))
+* resolve Scorecard Binary-Artifacts and Security-Policy alerts on master ([d69f906](https://github.com/niStee/pantella-wow/commit/d69f906f33f2826160951070b56794eb3939b096))
+* Resolve Tkinter thread safety and Radiant trigger latency ([4e374b9](https://github.com/niStee/pantella-wow/commit/4e374b91d6c74ea170a09f3161c5ad008946608f))
+* simplify release to single zip, Nexus only (no CurseForge) ([ab84cca](https://github.com/niStee/pantella-wow/commit/ab84ccad4b34811955a61cf80876efa7656d01c0))
+* wow 12.0 compatibility for pet health API ([6fb2eb3](https://github.com/niStee/pantella-wow/commit/6fb2eb336c424ed854056ac7a82de6055ec2217e))
+
+
+### Performance Improvements
+
+* Replace polling with Watchdog event-driven architecture ([a31d491](https://github.com/niStee/pantella-wow/commit/a31d4917703b74aef3eb17d5330b3a7895faa727))
+
+## Changelog
+
 All notable changes to Pantella WoW are documented here.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
