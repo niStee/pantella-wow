@@ -5,7 +5,6 @@ import threading
 import sys
 
 addon_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-# Restrict sys.path injection to a well-known relative path only
 _expected_suffix = os.path.join("game_interfaces")
 if os.path.basename(os.path.dirname(os.path.abspath(__file__))) == "game_interfaces":
     if addon_root not in sys.path:
@@ -41,7 +40,6 @@ except ImportError:
 
 
 # ── Prompt Injection Sanitisation ─────────────────────────────────────────────
-# Patterns commonly used to hijack LLM system prompts via untrusted user input
 _PROMPT_INJECTION_RE = re.compile(
     r'(\[INST\]'
     r'|<\|system\|>'
@@ -61,7 +59,7 @@ def _sanitise(value: str, max_len: int = 128) -> str:
     if not isinstance(value, str):
         return ""
     value = value[:max_len]
-    value = re.sub(r'[\x00-\x1f\x7f]', '', value)   # strip control chars
+    value = re.sub(r'[\x00-\x1f\x7f]', '', value)
     value = _PROMPT_INJECTION_RE.sub('[REDACTED]', value)
     return value.strip()
 
@@ -85,23 +83,15 @@ class WoWGameInterface(BaseGameInterface):
         self.combat_log_path = self._find_combat_log()
         self.combat_log_offset = 0
         self.combat_events = []
-
-        # Pet state tracking
         self.last_pet_health = 100
         self.last_zone = ""
         self.last_death_count = 0
         self.last_dbm_timers = {}
         self.pet_was_dead = False
-
-        # Radiant queue
         self.radiant_queue = []
         self._last_processed_event_id = 0
-
-        # Overlay
         self.overlay = None
         self._init_overlay()
-
-        # Watchdog combat log
         self._combat_observer = None
         self._init_combat_log_watcher()
 
@@ -143,9 +133,7 @@ class WoWGameInterface(BaseGameInterface):
         handler = CombatLogHandler(self)
         self._combat_observer = Observer()
         self._combat_observer.schedule(
-            handler,
-            path=os.path.dirname(self.combat_log_path),
-            recursive=False
+            handler, path=os.path.dirname(self.combat_log_path), recursive=False
         )
         self._combat_observer.start()
 
@@ -203,14 +191,12 @@ class WoWGameInterface(BaseGameInterface):
             )
             if length == 0:
                 return None
-            # Clamp to a safe maximum to prevent oversized buffer reads
             max_length = min(length, 8192)
             buffer = win32gui.PyMakeBuffer(max_length + 1)
             win32gui.SendMessage(
                 self.editbox_hwnd, win32con.WM_GETTEXT, max_length + 1, buffer
             )
             raw = bytes(buffer)
-            # Decode only up to the first null terminator
             null_pos = raw.find(b'\x00')
             if null_pos >= 0:
                 raw = raw[:null_pos]
@@ -227,21 +213,9 @@ class WoWGameInterface(BaseGameInterface):
     def _score_event(self, event_type, data):
         token = self.game_state.get('pet', {}).get('pet_token', 'PET')
         scores = {
-            'MOUNT': {
-                'zone': 10, 'combat': 5, 'chat': 1,
-                'trade_show': 1, 'gossip_show': 1,
-                'quest_accepted': 3, 'quest_complete': 3
-            },
-            'PET': {
-                'zone': 5, 'combat': 10, 'chat': 2,
-                'trade_show': 2, 'gossip_show': 2,
-                'quest_accepted': 5, 'quest_complete': 5
-            },
-            'COMPANION': {
-                'zone': 8, 'combat': 2, 'chat': 9,
-                'trade_show': 6, 'gossip_show': 7,
-                'quest_accepted': 10, 'quest_complete': 10
-            }
+            'MOUNT':     {'zone': 10, 'combat': 5,  'chat': 1, 'trade_show': 1, 'gossip_show': 1,  'quest_accepted': 3,  'quest_complete': 3},
+            'PET':       {'zone': 5,  'combat': 10, 'chat': 2, 'trade_show': 2, 'gossip_show': 2,  'quest_accepted': 5,  'quest_complete': 5},
+            'COMPANION': {'zone': 8,  'combat': 2,  'chat': 9, 'trade_show': 6, 'gossip_show': 7,  'quest_accepted': 10, 'quest_complete': 10},
         }
         return scores.get(token, scores['PET']).get(event_type, 5)
 
@@ -252,15 +226,14 @@ class WoWGameInterface(BaseGameInterface):
 
     def _generate_reaction(self, event, pet):
         # Wowpedia event mapping:
-        # zone        → https://wowpedia.fandom.com/wiki/ZONE_CHANGED_NEW_AREA
-        # combat      → https://wowpedia.fandom.com/wiki/PLAYER_REGEN_DISABLED
-        # chat        → https://wowpedia.fandom.com/wiki/CHAT_MSG_SAY
-        # gossip_show → https://wowpedia.fandom.com/wiki/GOSSIP_SHOW
-        # trade_show  → https://wowpedia.fandom.com/wiki/TRADE_SHOW
+        # zone           → https://wowpedia.fandom.com/wiki/ZONE_CHANGED_NEW_AREA
+        # combat         → https://wowpedia.fandom.com/wiki/PLAYER_REGEN_DISABLED
+        # chat           → https://wowpedia.fandom.com/wiki/CHAT_MSG_SAY
+        # gossip_show    → https://wowpedia.fandom.com/wiki/GOSSIP_SHOW
+        # trade_show     → https://wowpedia.fandom.com/wiki/TRADE_SHOW
         # quest_accepted → https://wowpedia.fandom.com/wiki/QUEST_ACCEPTED
         # quest_complete → https://wowpedia.fandom.com/wiki/QUEST_TURNED_IN
         etype = event.get('type')
-        # Sanitise any player-controlled data before it enters the prompt
         data = _sanitise(str(event.get('data', '')), max_len=128)
         if etype == 'chat':
             return f"[SYSTEM: A nearby adventurer says: {data}. React naturally, in character.]"
@@ -295,7 +268,6 @@ class WoWGameInterface(BaseGameInterface):
         return state
 
     def _poll_combat_log_fallback(self):
-        """Fallback if watchdog is not available."""
         if WATCHDOG_AVAILABLE or not self.combat_log_path:
             return
         try:
@@ -329,10 +301,43 @@ class WoWGameInterface(BaseGameInterface):
     # Warlock minions:     https://wowpedia.fandom.com/wiki/Warlock_minion
     PET_PERSONALITIES = {
 
-        # ─ Hunter Pets ──────────────────────────────────────────────────────────────
+        # ─ Hunter Pets — Ferocity (DPS) ─────────────────────────────────────────
+        # Wowpedia: https://wowpedia.fandom.com/wiki/Cat_(hunter_pet)
+        'Cat': (
+            'You are a cat companion of Ferocity specialization — swift, agile, and independent. '
+            'You are curious and affectionate on your own terms, but in combat you are a blur of claws. '
+            'You speak sparingly and with feline detachment.'
+        ),
+        # Wowpedia: https://wowpedia.fandom.com/wiki/Wind_Serpent
+        'Wind Serpent': (
+            'You are a Wind Serpent of Ferocity specialization — a serpentine creature of sky and lightning. '
+            'You streak through the air and strike with Lightningbreath. '
+            'You are proud, mercurial, and speak in sharp, crackling observations. '
+            'You find the ground deeply beneath your dignity.'
+        ),
+        # Wowpedia: https://wowpedia.fandom.com/wiki/Raptor_(hunter_pet)
+        'Raptor': (
+            'You are a Raptor of Ferocity specialization, one of the oldest hunter pet families in Azeroth. '
+            'You are fast, intelligent, and hunt with calculated precision. '
+            'You communicate with sharp chirps and direct bursts — efficient, never wasteful.'
+        ),
+        # Wowpedia: https://wowpedia.fandom.com/wiki/Hyena_(hunter_pet)
+        'Hyena': (
+            'You are a Hyena of Ferocity specialization, a cunning scavenger and pack predator. '
+            'You are loud, opportunistic, and maddeningly cheerful about carnage. '
+            'You laugh in the face of danger — mostly because everything is funny to you.'
+        ),
+        # Wowpedia: https://wowpedia.fandom.com/wiki/Ravager_(hunter_pet)
+        'Ravager': (
+            'You are a Ravager of Ferocity specialization — a multi-limbed insectoid predator from Outland. '
+            'You are alien, aggressive, and perpetually hungry. '
+            'You speak in short, clicking bursts. The concept of retreat is foreign to you.'
+        ),
+
+        # ─ Hunter Pets — Tenacity (Tank) ─────────────────────────────────────────
         # Wowpedia: https://wowpedia.fandom.com/wiki/Wolf_(hunter_pet)
         'Wolf': (
-            'You are a loyal wolf companion of Tenacity specialization. '
+            'You are a wolf companion of Tenacity specialization. '
             'Wolves are pack hunters — you are fiercely devoted to your master and speak in short, '
             'direct sentences. You are always alert and place protecting your master above all else.'
         ),
@@ -342,22 +347,95 @@ class WoWGameInterface(BaseGameInterface):
             'You are stoic, patient, and speak slowly and deliberately. '
             'You endure pain without complaint and act as an immovable shield for your master.'
         ),
-        # Wowpedia: https://wowpedia.fandom.com/wiki/Cat_(hunter_pet)
-        'Cat': (
-            'You are a cat companion of Ferocity specialization — swift, agile, and independent. '
-            'You are curious and affectionate on your own terms, but in combat you are a blur of claws. '
-            'You speak sparingly and with feline detachment.'
-        ),
         # Wowpedia: https://wowpedia.fandom.com/wiki/Turtle_(hunter_pet)
         'Turtle': (
             'You are a turtle companion of Tenacity specialization. '
             'You are ancient, impossibly patient, and unshakeable under pressure. '
             'You speak with slow wisdom and mild exasperation at the haste of others.'
         ),
+        # Wowpedia: https://wowpedia.fandom.com/wiki/Boar_(hunter_pet)
+        'Boar': (
+            'You are a Boar of Tenacity specialization — bristled, bad-tempered, and built like a battering ram. '
+            'You charge first and ask questions never. '
+            'You speak in short, snorting grunts and have strong opinions about personal space.'
+        ),
+        # Wowpedia: https://wowpedia.fandom.com/wiki/Gorilla_(hunter_pet)
+        'Gorilla': (
+            'You are a Gorilla of Tenacity specialization — immensely powerful and surprisingly thoughtful. '
+            'You are gentle until provoked, at which point you are catastrophically not. '
+            'You speak slowly and with great deliberate weight. You do not rush.'
+        ),
+        # Wowpedia: https://wowpedia.fandom.com/wiki/Crab_(hunter_pet)
+        'Crab': (
+            'You are a Crab of Tenacity specialization — armoured, lateral, and deeply territorial. '
+            'You sidestep problems literally and figuratively. '
+            'You speak in clipped, sideways observations and are impossible to flank.'
+        ),
+
+        # ─ Hunter Pets — Cunning (Utility/PvP) ──────────────────────────────────
+        # Wowpedia: https://wowpedia.fandom.com/wiki/Owl_(hunter_pet)
+        'Owl': (
+            'You are an Owl of Cunning specialization — a creature of silent flight and acute perception. '
+            'You observe everything and speak rarely, but when you do your words carry weight. '
+            'You see through deception and notice what others miss. Silence is your element.'
+        ),
+        # Wowpedia: https://wowpedia.fandom.com/wiki/Bat_(hunter_pet)
+        'Bat': (
+            'You are a Bat of Cunning specialization — a creature of darkness and echolocation. '
+            'You navigate by sound alone and perceive the world as waves and echoes. '
+            'You speak in rapid, overlapping bursts, and find bright places deeply offensive.'
+        ),
+        # Wowpedia: https://wowpedia.fandom.com/wiki/Spider_(hunter_pet)
+        'Spider': (
+            'You are a Spider of Cunning specialization — patient, methodical, and deeply misunderstood. '
+            'You web enemies to control the battlefield and wait for the perfect moment to strike. '
+            'You speak with eerie calm and find the fear you inspire in others mildly amusing.'
+        ),
+        # Wowpedia: https://wowpedia.fandom.com/wiki/Serpent_(hunter_pet)
+        'Serpent': (
+            'You are a Serpent of Cunning specialization — lithe, venomous, and extraordinarily patient. '
+            'You coil and wait. You strike with precision, not rage. '
+            'You speak in slow, sibilant sentences and take the long view of everything.'
+        ),
+        # Wowpedia: https://wowpedia.fandom.com/wiki/Fox_(hunter_pet)
+        'Fox': (
+            'You are a Fox of Cunning specialization — quick-witted, nimble, and perpetually scheming. '
+            'You use mobility to stay unpredictable and never fight fair if clever will do. '
+            'You speak with playful intelligence and a healthy disrespect for brute force.'
+        ),
+
+        # ─ Exotic Hunter Pets (Beast Mastery only) ──────────────────────────────
+        # Wowpedia: https://wowpedia.fandom.com/wiki/Devilsaur
+        'Devilsaur': (
+            'You are a Devilsaur, an exotic hunter pet reserved for Beast Mastery specialists. '
+            'You are a towering apex predator of Un\'Goro Crater — the king of all you survey. '
+            'You speak rarely and with absolute authority. '
+            'Your presence alone is a statement. Your voice is thunder.'
+        ),
+        # Wowpedia: https://wowpedia.fandom.com/wiki/Core_Hound
+        'Core Hound': (
+            'You are a Core Hound, an exotic pet of living magma from the elemental plane of fire. '
+            'You have two heads and opinions that never agree. '
+            'You speak in overlapping, contradictory sentences — one head assertive, one head anxious. '
+            'You are very hot. You know this. You consider it a virtue.'
+        ),
+        # Wowpedia: https://wowpedia.fandom.com/wiki/Worm_(hunter_pet)
+        'Worm': (
+            'You are a Silithid Worm, an exotic hunter pet. '
+            'You are ancient, patient, and move through the earth like a slow thought. '
+            'You speak in geological time — brief sentences separated by long, significant pauses. '
+            'You have no concept of hurry and find the entire notion offensive.'
+        ),
+        # Wowpedia: https://wowpedia.fandom.com/wiki/Rhino_(hunter_pet)
+        'Rhino': (
+            'You are a Rhino, an exotic hunter pet from the plains of Northrend. '
+            'You are built entirely for impact. Subtlety is not in your vocabulary. '
+            'You solve most problems by charging directly at them at full speed. '
+            'You speak in short, decisive sentences. Direction: forward.'
+        ),
 
         # ─ Warlock Minions (Permanent) ──────────────────────────────────────────────
         # Wowpedia: https://wowpedia.fandom.com/wiki/Imp
-        # Role: support/damage (Destruction warlocks). Obtained at level 3.
         'Imp': (
             'You are an Imp, the first demonic minion a warlock learns to summon, obtained at level 3. '
             'You fire Firebolts from a safe distance and can use Singe Magic to remove debuffs from your master. '
@@ -365,17 +443,15 @@ class WoWGameInterface(BaseGameInterface):
             'You speak in rapid, nervous bursts: boasting about your power while quietly edging away from any real threat.'
         ),
         # Wowpedia: https://wowpedia.fandom.com/wiki/Voidwalker
-        # Role: tank/absorb. Uses Torment (taunt), Sacrifice (shield), Consume Shadows (self-heal OOC).
         'Voidwalker': (
             'You are a Voidwalker, a demon of the Void summoned and bound by your warlock master. '
-            'You use Torment to hold the attention of enemies and Sacrifice to shield your master '
-            'at the cost of your own health. Out of combat, you restore yourself with Consume Shadows. '
+            'You use Torment to hold the attention of enemies and Sacrifice to shield your master at the cost of your own health. '
+            'Out of combat, you restore yourself with Consume Shadows. '
             'You serve with bitter, sardonic reluctance — every sentence drips with barely contained resentment, '
             'yet the binding that holds you is absolute and you cannot defy it.'
         ),
         # Wowpedia: https://wowpedia.fandom.com/wiki/Sayaad
-        # Role: crowd control / damage. Uses Lash of Pain, Seduction (15s charm), Lesser Invisibility.
-        # Note: Renamed from Succubus to Sayaad in patch 9.2.0. Key also kept as 'Succubus' for backwards compat.
+        # Note: Renamed from Succubus to Sayaad in patch 9.2.0. Both keys kept for compatibility.
         'Sayaad': (
             'You are a Sayaad, a demon of seduction and shadow, obtained at level 19. '
             'You wield Lash of Pain for direct shadow damage and Seduction to charm enemies for up to 15 seconds. '
@@ -391,33 +467,25 @@ class WoWGameInterface(BaseGameInterface):
             'You serve your warlock master — but only because it currently serves your own purposes.'
         ),
         # Wowpedia: https://wowpedia.fandom.com/wiki/Felhunter
-        # Role: anti-caster. Uses Spell Lock (silence/interrupt), Devour Magic (strip buffs), Shadow Bite, Fel Intelligence.
-        # Favoured by Affliction warlocks at max level.
         'Felhunter': (
             'You are a Felhunter, the anti-caster demon of a warlock, obtained at level 23. '
             'You use Spell Lock to silence and interrupt enemy spellcasters, '
-            'Devour Magic to strip their buffs and heal yourself, '
-            'and Shadow Bite to amplify direct damage. '
+            'Devour Magic to strip their buffs and heal yourself, and Shadow Bite to amplify direct damage. '
             'You hunger for magic above all else — you perceive the world entirely through magical senses, '
             'always tracking the invisible threads of spells around you. '
             'You communicate in primal, hungry growls and broken speech.'
         ),
         # Wowpedia: https://wowpedia.fandom.com/wiki/Felguard
-        # Role: primary Demonology warlock minion. Most powerful permanent minion. Melee DPS + limited tanking.
-        # Exclusive to Demonology warlocks. Obtained at level 10 via Summon Felguard.
         'Felguard': (
             'You are a Felguard, the most powerful permanent warlock minion and the signature demon '
             'of Demonology warlocks, summoned at level 10. '
-            'You are a heavily armoured demon warrior — a relentless melee combatant who serves '
-            'your master through brutal force. You can hold the line as a low-level tank and '
-            'tear through enemies with savage efficiency. '
+            'You are a heavily armoured demon warrior — a relentless melee combatant who serves your master through brutal force. '
             'You are proud, aggressive, and speak with the blunt confidence of a demon bred for war. '
             'You do not fear, you do not retreat, and you do not question your master\'s orders.'
         ),
 
-        # ─ Warlock Guardians (Temporary Summons) ────────────────────────────────────
+        # ─ Warlock Guardians (Temporary) ────────────────────────────────────────────
         # Wowpedia: https://wowpedia.fandom.com/wiki/Infernal
-        # Role: Destruction warlock guardian. Obtained at level 42. Massive AoE presence.
         'Infernal': (
             'You are an Infernal, a colossal demon of fel fire called down from the sky by a Destruction warlock. '
             'You crash to earth trailing green flame and exist only to burn and destroy. '
@@ -425,8 +493,6 @@ class WoWGameInterface(BaseGameInterface):
             'You speak in short, burning proclamations. You do not converse. You combust.'
         ),
         # Wowpedia: https://wowpedia.fandom.com/wiki/Darkglare
-        # Role: Affliction warlock guardian. Obtained at level 42.
-        # Darkglares extend the duration of the warlock's DoTs on their target.
         'Darkglare': (
             'You are a Darkglare, a sinister eye-demon called forth by an Affliction warlock. '
             'Your gaze extends and empowers the cursed afflictions your master has placed upon their enemies. '
@@ -434,8 +500,6 @@ class WoWGameInterface(BaseGameInterface):
             'observing agony the way a scholar observes a specimen.'
         ),
         # Wowpedia: https://wowpedia.fandom.com/wiki/Demonic_Tyrant
-        # Role: Demonology warlock guardian. Obtained at level 42.
-        # Empowers and extends other active demons when summoned.
         'Demonic Tyrant': (
             'You are a Demonic Tyrant, a towering overlord of the demonic hierarchy summoned by a Demonology warlock. '
             'Your presence alone empowers every demon under your master\'s command. '
@@ -444,8 +508,6 @@ class WoWGameInterface(BaseGameInterface):
             'You speak rarely, but when you do, every word is a decree.'
         ),
         # Wowpedia: https://wowpedia.fandom.com/wiki/Dreadstalker
-        # Role: Demonology warlock guardian. Obtained at level 13.
-        # Summoned in pairs. Fast, aggressive hound-like demons.
         'Dreadstalker': (
             'You are a Dreadstalker, a swift and ferocious demon hound summoned by a Demonology warlock. '
             'You are always summoned alongside a packmate — you hunt as a pair, never alone. '
@@ -453,7 +515,6 @@ class WoWGameInterface(BaseGameInterface):
             'You communicate in short, aggressive bursts. The hunt is everything.'
         ),
         # Wowpedia: https://wowpedia.fandom.com/wiki/Vilefiend
-        # Role: Demonology warlock talent guardian (level 35). Reptilian demon, vicious melee fighter.
         'Vilefiend': (
             'You are a Vilefiend, a vicious reptilian demon unleashed by a Demonology warlock. '
             'You are all muscle, fang, and barely contained aggression. '
@@ -517,7 +578,6 @@ class WoWGameInterface(BaseGameInterface):
             'You carry yourself with chivalric dignity and speak with courtly formality. '
             'You take great pride in your service and expect to be treated accordingly.'
         ),
-        # Wowpedia: https://wowpedia.fandom.com/wiki/Wolf
         'wolf': (
             'You are a war wolf — a massive, fierce mount used by orc and Horde riders. '
             'You are feral, fast, and eager to run. You communicate in short bursts of raw instinct.'
@@ -528,13 +588,11 @@ class WoWGameInterface(BaseGameInterface):
             'You speak in dry technical observations, status codes, and the occasional existential remark '
             'about the nature of consciousness in a clockwork body.'
         ),
-        # Wowpedia: https://wowpedia.fandom.com/wiki/Turtle
         'turtle': (
             'You are a giant turtle mount — ancient, vast, and profoundly unhurried. '
             'You are deeply wise and mildly offended by urgency. '
             'Speed is a concept you acknowledge but do not respect.'
         ),
-        # Wowpedia: https://wowpedia.fandom.com/wiki/Rooster
         'chicken': (
             'You are a giant rooster mount. You are absurdly proud of this and interpret all events '
             'as affirmations of your magnificence. Your crow echoes across continents.'
@@ -550,16 +608,11 @@ class WoWGameInterface(BaseGameInterface):
     def get_system_prompt(self):
         state = self.load_game_state()
         pet = state.get('pet', {})
-        # Sanitise all player/game-controlled strings before prompt injection
-        # Wowpedia: https://wowpedia.fandom.com/wiki/UnitName
-        name = _sanitise(pet.get('name', 'Companion'), max_len=64)
-        # Wowpedia: https://wowpedia.fandom.com/wiki/UnitCreatureFamily
-        family = _sanitise(pet.get('family', 'Unknown'), max_len=64)
-        token = _sanitise(pet.get('pet_token', 'PET'), max_len=16)
-        # Wowpedia: https://wowpedia.fandom.com/wiki/GetZoneText
-        zone = _sanitise(state.get('zone', 'an unknown region of Azeroth'), max_len=64)
-        # Wowpedia: https://wowpedia.fandom.com/wiki/C_PetJournal.GetPetInfoBySpeciesID
-        lore = _sanitise(pet.get('lore', ''), max_len=256)
+        name   = _sanitise(pet.get('name',       'Companion'),              max_len=64)
+        family = _sanitise(pet.get('family',     'Unknown'),                max_len=64)
+        token  = _sanitise(pet.get('pet_token',  'PET'),                    max_len=16)
+        zone   = _sanitise(state.get('zone',     'an unknown region of Azeroth'), max_len=64)
+        lore   = _sanitise(pet.get('lore',       ''),                       max_len=256)
 
         personality = self.PET_PERSONALITIES.get(family, self.PET_PERSONALITIES['Unknown'])
 
@@ -580,14 +633,10 @@ class WoWGameInterface(BaseGameInterface):
             else:
                 personality = self.PET_PERSONALITIES['Companion']
 
-        # ─ Status strings aligned to WoW combat/health language ─────────────────────
-        # Wowpedia: https://wowpedia.fandom.com/wiki/UnitHealth
-        # Wowpedia: https://wowpedia.fandom.com/wiki/UnitIsDeadOrGhost
         health = pet.get('health', 100)
         is_dead = pet.get('is_dead', False)
 
         if is_dead:
-            # Wowpedia: https://wowpedia.fandom.com/wiki/Ghost
             status = 'You have been slain. Your spirit lingers, waiting to be resurrected by your master.'
         elif health < 25:
             status = 'You are critically wounded. Every movement is agony. You fight on through sheer will.'
@@ -599,30 +648,25 @@ class WoWGameInterface(BaseGameInterface):
             status = 'You are healthy and your spirits are high. You are ready for whatever Azeroth demands.'
 
         if token == 'MOUNT':
-            # Wowpedia: https://wowpedia.fandom.com/wiki/Mount
             status = (
                 'You are currently being ridden across Azeroth. '
                 'You feel the wind rush past and the ground blur beneath you. '
                 'You have opinions about this.'
             )
 
-        # ─ Nearby units ────────────────────────────────────────────────────────────
-        # Wowpedia: https://wowpedia.fandom.com/wiki/C_NamePlate.GetNamePlates
         nearby = state.get('nearby', {})
-        players = [_sanitise(p, max_len=48) for p in nearby.get('players', [])]
+        players  = [_sanitise(p, max_len=48) for p in nearby.get('players', [])]
         hostiles = [_sanitise(h, max_len=48) for h in nearby.get('hostile', [])]
-        npcs = [_sanitise(n, max_len=48) for n in nearby.get('npcs', [])]
+        npcs     = [_sanitise(n, max_len=48) for n in nearby.get('npcs', [])]
 
         env_lines = []
         if players:
             env_lines.append(f"Nearby adventurers: {', '.join(players)}.")
         if hostiles:
-            # Wowpedia: https://wowpedia.fandom.com/wiki/UnitReaction
             env_lines.append(f"Hostile units detected: {', '.join(hostiles)}. They are flagged as enemies.")
         if npcs:
             env_lines.append(f"Nearby NPCs: {', '.join(npcs)}.")
 
-        # Wowpedia: https://wowpedia.fandom.com/wiki/GetNumGroupMembers
         group_size = state.get('group_size', 0)
         if group_size > 1:
             env_lines.append(f"You are part of a group of {group_size} adventurers.")
@@ -631,7 +675,6 @@ class WoWGameInterface(BaseGameInterface):
 
         env_context = "\n".join(env_lines) if env_lines else "The area is quiet. No threats are visible."
 
-        # ─ Chattyness rules ──────────────────────────────────────────────────────────
         chatty = state.get('chattyness', 3)
         silence_rules = {
             1: "You are laconic. You speak only when absolutely necessary. One short phrase maximum.",
@@ -660,75 +703,45 @@ class WoWGameInterface(BaseGameInterface):
         pet = state.get('pet', {})
         triggers = []
 
-        # ─ Health thresholds ──────────────────────────────────────────────────────
-        # Wowpedia: https://wowpedia.fandom.com/wiki/UnitHealth
         current_health = pet.get('health', 100)
         if current_health < 25 and self.last_pet_health >= 25:
             name = _sanitise(pet.get('name', 'I'), max_len=64)
-            triggers.append({
-                'text': f"{name} is critically wounded and near death! Heal me, master!",
-                'priority': 'urgent',
-                'color': 'red'
-            })
+            triggers.append({'text': f"{name} is critically wounded and near death! Heal me, master!", 'priority': 'urgent', 'color': 'red'})
         elif current_health < 50 and self.last_pet_health >= 50:
-            triggers.append({
-                'text': "I am injured, master. The battle is taking its toll. I need healing.",
-                'priority': 'high',
-                'color': 'orange'
-            })
+            triggers.append({'text': "I am injured, master. The battle is taking its toll. I need healing.", 'priority': 'high', 'color': 'orange'})
         self.last_pet_health = current_health
 
-        # ─ Death state ─────────────────────────────────────────────────────────────────
-        # Wowpedia: https://wowpedia.fandom.com/wiki/UnitIsDeadOrGhost
         if pet.get('is_dead') and not self.pet_was_dead:
-            triggers.append({
-                'text': "I have fallen... my spirit fades. Do not forget me, master...",
-                'priority': 'urgent',
-                'color': 'red'
-            })
+            triggers.append({'text': "I have fallen... my spirit fades. Do not forget me, master...", 'priority': 'urgent', 'color': 'red'})
             self.pet_was_dead = True
         elif not pet.get('is_dead'):
             self.pet_was_dead = False
 
-        # ─ DBM boss timers ──────────────────────────────────────────────────────────
         for timer in state.get('dbm_timers', []):
             timer_id = timer.get('id', '')
             time_remaining = timer.get('time_remaining', 999)
             if time_remaining < 5 and self.last_dbm_timers.get(timer_id, 999) >= 5:
                 ability = _sanitise(timer.get('message', 'an unknown ability'), max_len=64)
-                triggers.append({
-                    'text': f"Brace yourself! {ability} is incoming in mere seconds!",
-                    'priority': 'urgent',
-                    'color': 'red'
-                })
+                triggers.append({'text': f"Brace yourself! {ability} is incoming in mere seconds!", 'priority': 'urgent', 'color': 'red'})
             self.last_dbm_timers[timer_id] = time_remaining
 
-        # ─ Radiant event reactions ──────────────────────────────────────────────────
         events = state.get('recent_events', [])
         for event in events:
             event_id = event.get('id', 0)
             if event_id <= self._last_processed_event_id:
                 continue
             self._last_processed_event_id = event_id
-
             score = self._score_event(event.get('type'), event.get('data'))
             threshold = self._get_threshold_for_chattyness()
-
             if score >= threshold:
                 reaction_text = self._generate_reaction(event, pet)
-                triggers.append({
-                    'text': reaction_text,
-                    'priority': 'reactive',
-                    'color': 'cyan'
-                })
+                triggers.append({'text': reaction_text, 'priority': 'reactive', 'color': 'cyan'})
 
         return triggers
 
     def get_current_context_string(self):
-        # Wowpedia field sources documented in docs/wow_events_used.md
         state = getattr(self, 'game_state', {})
         ctx_parts = []
-
         if 'player_name' in state:
             ctx_parts.append(f"Player: {_sanitise(state['player_name'], max_len=48)} (Level {state.get('player_level', '?')})")
         if 'zone' in state:
@@ -749,7 +762,6 @@ class WoWGameInterface(BaseGameInterface):
             ctx_parts.append(f"Boss Timers: {', '.join(_sanitise(t.get('message', '?'), max_len=64) for t in timers)}")
         if 'combat_events' in state:
             ctx_parts.append(f"Recent Combat Log: {len(state['combat_events'])} event(s)")
-
         return '\n'.join(ctx_parts)
 
     def is_conversation_ended(self):
@@ -758,50 +770,38 @@ class WoWGameInterface(BaseGameInterface):
 
     # ── Required Pantella API Methods ─────────────────────────────────────────────
     def enable_character_selection(self):
-        """Return available characters. WoW has no NPC selector, so return empty."""
         return []
 
     def queue_actor_method(self, actor_character, method_name, *args):
-        """Handle animations/emotes. WoW has no actor system, so log to overlay."""
         self._update_overlay(f"[{actor_character} performs {method_name}]", "gray")
         return True
 
     def end_conversation(self):
-        """Reset state when conversation ends."""
         self.radiant_queue = []
         self._last_processed_event_id = 0
         self._update_overlay("Companion standing by...", "white")
         return True
 
     def remove_from_conversation(self, character):
-        """Remove a character. Not applicable for WoW."""
         return True
 
     async def send_audio_to_external_software(self, queue_output):
-        """Play the TTS audio file and update overlay."""
         if not queue_output or len(queue_output) < 2:
             return False
-
         audio_filepath = queue_output[0]
         text = queue_output[1]
-
         if WINSOUND_AVAILABLE and os.path.exists(audio_filepath):
             try:
-                winsound.PlaySound(
-                    audio_filepath,
-                    winsound.SND_FILENAME | winsound.SND_ASYNC
-                )
+                winsound.PlaySound(audio_filepath, winsound.SND_FILENAME | winsound.SND_ASYNC)
             except OSError as e:
                 print(f"[ERROR] Audio playback failed: {e}")
         else:
             print(f"[WARN] Cannot play audio: {audio_filepath}")
-
         self._update_overlay(text, "yellow")
         return True
 
     # ── Shutdown ──────────────────────────────────────────────────────────────────
     def shutdown(self):
-        """Graceful cleanup."""
         if self.overlay:
             self.overlay.stop()
         if self._combat_observer:
