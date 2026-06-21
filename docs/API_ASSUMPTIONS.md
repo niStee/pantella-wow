@@ -4,36 +4,56 @@ This document tracks every external API, event, or third-party schema assumption
 Each entry must be verified against its canonical source before merging.
 
 > **Rule:** If it doesn't have a source URL here, it doesn't get merged.
-> **Enforced by:** `tests/test_api_assumptions.py` — will be red if any event/API lacks a Wowpedia comment.
+> **Enforced by:** `tests/test_api_assumptions.py` — will be red if any event/API lacks a source comment.
+
+---
+
+## Source of Truth Hierarchy (quick reference)
+
+| Tier | Source | When to use |
+|---|---|---|
+| **1a** | In-game `/api` → `Blizzard_APIDocumentation` | Always current, no internet needed |
+| **1b** | [Blizzard Developer Portal](https://develop.battle.net/documentation/world-of-warcraft) | REST/OAuth + post-10.1.7 Lua API reference |
+| **1c** | [Townlong Yak FrameXML](https://www.townlong-yak.com/framexml/live) | Live FrameXML viewer, post-10.1.7 events |
+| **2** | [Wowpedia](https://wowpedia.fandom.com/wiki/World_of_Warcraft_API) | Stable Classic-era APIs, lore, pet specs |
+| **3** | Addon GitHub (BigWigs, DBM…) | Third-party addon schemas only |
+
+> ⚠️ **Wowpedia is frozen after patch 10.1.7 (August 2023).** For APIs introduced or changed after that, use Tier 1b or 1c.
 
 ---
 
 ## Blizzard WoW Lua API (stable, verified)
 
-All stable since Classic/Vanilla. Source: https://wowpedia.fandom.com/wiki/World_of_Warcraft_API
+All entries below are stable since Classic/Vanilla and verified via Wowpedia (Tier 2).
+For any API added post-10.1.7, use Tier 1b (`develop.battle.net`) or 1c (Townlong Yak) as primary.
 
-| API / Event | Used in | Wowpedia URL | Status |
-|---|---|---|---|
-| `UnitHealth(unit)` | `check_radiant_triggers` | https://wowpedia.fandom.com/wiki/UnitHealth | ✅ |
-| `UnitIsDeadOrGhost(unit)` | `check_radiant_triggers` | https://wowpedia.fandom.com/wiki/UnitIsDeadOrGhost | ✅ |
-| `ZONE_CHANGED_NEW_AREA` | `_generate_reaction` — zone | https://wowpedia.fandom.com/wiki/ZONE_CHANGED_NEW_AREA | ✅ |
-| `PLAYER_REGEN_DISABLED` | `_generate_reaction` — combat | https://wowpedia.fandom.com/wiki/PLAYER_REGEN_DISABLED | ✅ |
-| `GOSSIP_SHOW` | `_generate_reaction` — gossip | https://wowpedia.fandom.com/wiki/GOSSIP_SHOW | ✅ |
-| `TRADE_SHOW` | `_generate_reaction` — trade | https://wowpedia.fandom.com/wiki/TRADE_SHOW | ✅ |
-| `QUEST_ACCEPTED` | `_generate_reaction` — quest_accepted | https://wowpedia.fandom.com/wiki/QUEST_ACCEPTED | ✅ |
-| `QUEST_TURNED_IN` | `_generate_reaction` — quest_complete | https://wowpedia.fandom.com/wiki/QUEST_TURNED_IN | ✅ |
-| `CHAT_MSG_SAY` | `_generate_reaction` — chat | https://wowpedia.fandom.com/wiki/CHAT_MSG_SAY | ✅ |
-| `COMBAT_LOG_EVENT` | `_read_combat_log_delta` | https://wowpedia.fandom.com/wiki/COMBAT_LOG_EVENT | ✅ |
-| `WM_GETTEXT` / `WM_GETTEXTLENGTH` | `_read_editbox_text` | Win32 API (stable) | ✅ |
+| API / Event | Used in | Primary Source | Blizzard Dev Portal | Status |
+|---|---|---|---|---|
+| `UnitHealth(unit)` | `check_radiant_triggers` | [Wowpedia](https://wowpedia.fandom.com/wiki/UnitHealth) | [Unit API](https://develop.battle.net/documentation/world-of-warcraft/game-data-apis) | ✅ |
+| `UnitIsDeadOrGhost(unit)` | `check_radiant_triggers` | [Wowpedia](https://wowpedia.fandom.com/wiki/UnitIsDeadOrGhost) | [Unit API](https://develop.battle.net/documentation/world-of-warcraft/game-data-apis) | ✅ |
+| `ZONE_CHANGED_NEW_AREA` | `_generate_reaction` — zone | [Wowpedia](https://wowpedia.fandom.com/wiki/ZONE_CHANGED_NEW_AREA) | [Dev Portal Events](https://develop.battle.net/documentation/world-of-warcraft) | ✅ |
+| `PLAYER_REGEN_DISABLED` | `_generate_reaction` — combat | [Wowpedia](https://wowpedia.fandom.com/wiki/PLAYER_REGEN_DISABLED) | [Dev Portal Events](https://develop.battle.net/documentation/world-of-warcraft) | ✅ |
+| `GOSSIP_SHOW` | `_generate_reaction` — gossip | [Wowpedia](https://wowpedia.fandom.com/wiki/GOSSIP_SHOW) | [Dev Portal Events](https://develop.battle.net/documentation/world-of-warcraft) | ✅ |
+| `TRADE_SHOW` | `_generate_reaction` — trade | [Wowpedia](https://wowpedia.fandom.com/wiki/TRADE_SHOW) | [Dev Portal Events](https://develop.battle.net/documentation/world-of-warcraft) | ✅ |
+| `QUEST_ACCEPTED` | `_generate_reaction` — quest_accepted | [Wowpedia](https://wowpedia.fandom.com/wiki/QUEST_ACCEPTED) | [Dev Portal Events](https://develop.battle.net/documentation/world-of-warcraft) | ✅ |
+| `QUEST_TURNED_IN` | `_generate_reaction` — quest_complete | [Wowpedia](https://wowpedia.fandom.com/wiki/QUEST_TURNED_IN) | [Dev Portal Events](https://develop.battle.net/documentation/world-of-warcraft) | ✅ |
+| `CHAT_MSG_SAY` | `_generate_reaction` — chat | [Wowpedia](https://wowpedia.fandom.com/wiki/CHAT_MSG_SAY) | [Dev Portal Events](https://develop.battle.net/documentation/world-of-warcraft) | ✅ |
+| `COMBAT_LOG_EVENT` | `_read_combat_log_delta` | [Wowpedia](https://wowpedia.fandom.com/wiki/COMBAT_LOG_EVENT) | [Dev Portal Events](https://develop.battle.net/documentation/world-of-warcraft) | ✅ |
+| `WM_GETTEXT` / `WM_GETTEXTLENGTH` | `_read_editbox_text` | Win32 API (stable) | N/A | ✅ |
 
-### Wowpedia Coverage Note
+### When Tier 1b (develop.battle.net) takes priority over Wowpedia
 
-Wowpedia's API wiki was **partially frozen after patch 10.1.7 (August 2023)**.
-For APIs added or changed after that patch, verify against:
+Use `develop.battle.net` as **primary** (and note it in the source comment) when:
+- The API was added after patch **10.1.7 (August 2023)**
+- The Wowpedia page shows outdated parameter counts or wrong return values
+- You are implementing REST API calls (e.g. character lookups, realm status)
+- Wowpedia says "needs updating" or has a `{{stub}}` tag
 
-1. In-game: `/api` → `Blizzard_APIDocumentation` (always current)
-2. [Blizzard Developer Portal](https://develop.battle.net/documentation/world-of-warcraft)
-3. [Townlong Yak live FrameXML viewer](https://www.townlong-yak.com/framexml/live)
+In those cases, the inline code comment format is:
+```python
+# Blizzard Dev Portal: https://develop.battle.net/documentation/world-of-warcraft
+# (Wowpedia outdated for this API — use Dev Portal as primary)
+```
 
 ---
 
@@ -80,9 +100,9 @@ self:SendMessage("BigWigs_StopBar", module, id, text)
 
 -- Listen to these from MantellaWoW.lua:
 BigWigsLoader:RegisterMessage("BigWigs_StartBar", function(event, module, id, text, duration, icon)
-    -- text   = ability name (e.g. "Void Zone")
+    -- text     = ability name (e.g. "Void Zone")
     -- duration = total seconds (number)
-    -- id     = unique bar identifier
+    -- id       = unique bar identifier
 end)
 ```
 
@@ -94,10 +114,8 @@ end)
 **Why BigWigs is a better choice than DBM for this project:**
 - ✅ Open, MIT-licensed, fully public GitHub API — no guesswork
 - ✅ Simpler message schema (`text`, `duration`) vs DBM's opaque Lua timer objects
-- ✅ Lower memory/CPU footprint than DBM (relevant during combat when overlay is active)
 - ✅ `text` field = human-readable ability name, directly usable in trigger text
-- ✅ 257 stars, 113 contributors, releases as recently as Sep 2025
-- ⚠️ Users need BigWigs installed (separate install from DBM) — document in README
+- ⚠️ Users need BigWigs installed (separate from DBM) — document in README
 
 **Recommendation:** Implement BigWigs first. Add DBM as optional parallel path once BigWigs works.
 
@@ -115,9 +133,6 @@ Enforced by: `TestHunterSpecCorrectness` in `tests/test_wow_personalities.py`
 | **Cunning** | Bird of Prey, Boar, Fox, Hyena, Serpent |
 | **Exotic Ferocity** | Core Hound, Devilsaur |
 | **Exotic Tenacity** | Worm |
-
-All families must have a `# https://wowpedia.fandom.com/wiki/...` comment in `wow.py`.
-Enforced by `TestWowpediaSourceOfTruth` in `tests/test_wow_personalities.py`.
 
 ---
 
