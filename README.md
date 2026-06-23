@@ -42,3 +42,12 @@ When adding or updating dependencies, **do not** edit `requirements.txt` or `req
    uv pip compile --generate-hashes requirements.in -o requirements.txt
    uv pip compile --generate-hashes requirements-dev.in -o requirements-dev.txt
    ```
+
+## Linting
+
+Python code is linted with [ruff](https://docs.astral.sh/ruff/) (E, F, I, UP, B, SIM rules). Lua is linted with `luacheck`. Type checking via `mypy`.
+
+```bash
+ruff check game_interfaces/ tools/ tests/
+ruff format --check game_interfaces/ tools/ tests/
+```
