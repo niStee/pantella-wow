@@ -10,6 +10,23 @@ permissions:
   contents: read
 
 jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          submodules: true
+      - name: Set up Python
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
+        with:
+          python-version: '3.11'
+      - name: Install ruff
+        run: pip install ruff
+      - name: Lint Python
+        run: ruff check game_interfaces/ tools/ tests/
+      - name: Format check
+        run: ruff format --check game_interfaces/ tools/ tests/
+
   python-test:
     runs-on: ubuntu-latest
     strategy:
