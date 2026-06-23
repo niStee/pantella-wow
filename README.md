@@ -51,3 +51,40 @@ Python code is linted with [ruff](https://docs.astral.sh/ruff/) (E, F, I, UP, B,
 ruff check game_interfaces/ tools/ tests/
 ruff format --check game_interfaces/ tools/ tests/
 ```
+
+## TDI: Test-Driven Infrastructure
+
+This repo follows the Test-Driven Infrastructure methodology:
+
+| Layer | Tool | What It Catches |
+|-------|------|-----------------|
+| Static Analysis | ruff (pyproject.toml), luacheck | Python/Lua syntax |
+| Unit | pytest (3.10 + 3.11 matrix) | Component behavior |
+| Contract | mypy | Type correctness |
+| Compliance | GitHub Actions, Scorecard | Secrets, supply chain |
+| E2E | GitHub Actions CI | Full lint + test + typecheck |
+
+### Definition of Done
+- [ ] `ruff check . && ruff format --check .` passes
+- [ ] `luacheck MantellaWoW/` passes
+- [ ] `mypy game_interfaces/` passes
+- [ ] `pytest -v tests/` passes (Python 3.10 + 3.11)
+- [ ] No secrets committed
+
+## Development Conventions
+
+### PR & Commit Guidelines
+- Conventional Commits: `feat:`, `fix:`, `chore:`, `docs:`, `test:`, `refactor:`
+- Branch naming: `feat/`, `fix/`, `chore/`, `docs/` prefix
+- PRs must pass CI before merge
+- Squash merge only
+
+### Boundaries
+- **Always**: run full lint suite (`ruff`, `luacheck`, `mypy`) and `pytest` before pushing
+- **Ask first**: changing WoW API calls, modifying Lua addon code, adding dependencies
+- **Never**: commit `.venv/`, commit generated files, hardcode player-specific data
+
+### Anti-patterns
+- `try: ... except: pass` (empty exception handlers)
+- Direct memory reads without error handling
+- `print()` for debugging (use `logging` module)
