@@ -1,0 +1,163 @@
+{
+  "_meta": {
+    "description": "Wowpedia-validated WoW API and Event reference used by pantella-wow.",
+    "source": "https://wowpedia.fandom.com/wiki/Wowpedia",
+    "last_reviewed": "2026-06-22",
+    "wow_version": "11.x (The War Within)"
+  },
+  "combat_log_events": [
+    {
+      "name": "SPELL_CAST_SUCCESS",
+      "wowpedia_url": "https://wowpedia.fandom.com/wiki/COMBAT_LOG_EVENT",
+      "description": "Fired when a spell cast succeeds. Subtype of COMBAT_LOG_EVENT_UNFILTERED.",
+      "used_in": ["game_interfaces/wow.py:_read_combat_log_delta", "game_interfaces/wow.py:_poll_combat_log_fallback"],
+      "valid": true
+    },
+    {
+      "name": "UNIT_DIED",
+      "wowpedia_url": "https://wowpedia.fandom.com/wiki/COMBAT_LOG_EVENT",
+      "description": "Fired when a unit dies. Subtype of COMBAT_LOG_EVENT_UNFILTERED.",
+      "used_in": ["game_interfaces/wow.py:_read_combat_log_delta", "game_interfaces/wow.py:_poll_combat_log_fallback"],
+      "valid": true
+    },
+    {
+      "name": "SPELL_AURA_APPLIED",
+      "wowpedia_url": "https://wowpedia.fandom.com/wiki/COMBAT_LOG_EVENT",
+      "description": "Fired when a buff/debuff aura is applied to a unit.",
+      "used_in": ["game_interfaces/wow.py:_read_combat_log_delta", "game_interfaces/wow.py:_poll_combat_log_fallback"],
+      "valid": true
+    }
+  ],
+  "game_state_fields": [
+    {
+      "name": "player_name",
+      "wowpedia_url": "https://wowpedia.fandom.com/wiki/UnitName",
+      "description": "Player character name, sourced via UnitName('player') in Lua.",
+      "used_in": ["game_interfaces/wow.py:get_current_context_string", "game_interfaces/wow.py:is_conversation_ended"],
+      "valid": true
+    },
+    {
+      "name": "player_level",
+      "wowpedia_url": "https://wowpedia.fandom.com/wiki/UnitLevel",
+      "description": "Player character level, sourced via UnitLevel('player') in Lua.",
+      "used_in": ["game_interfaces/wow.py:get_current_context_string"],
+      "valid": true
+    },
+    {
+      "name": "zone",
+      "wowpedia_url": "https://wowpedia.fandom.com/wiki/GetZoneText",
+      "description": "Current zone name, sourced via GetZoneText() in Lua.",
+      "used_in": ["game_interfaces/wow.py:get_system_prompt", "game_interfaces/wow.py:get_current_context_string"],
+      "valid": true
+    },
+    {
+      "name": "in_combat",
+      "wowpedia_url": "https://wowpedia.fandom.com/wiki/UnitAffectingCombat",
+      "description": "Whether the player is in combat, sourced via UnitAffectingCombat('player') in Lua.",
+      "used_in": ["game_interfaces/wow.py:get_current_context_string"],
+      "valid": true
+    },
+    {
+      "name": "group_size",
+      "wowpedia_url": "https://wowpedia.fandom.com/wiki/GetNumGroupMembers",
+      "description": "Current group/party/raid size, sourced via GetNumGroupMembers() in Lua.",
+      "used_in": ["game_interfaces/wow.py:get_system_prompt"],
+      "valid": true
+    }
+  ],
+  "pet_api_fields": [
+    {
+      "name": "pet.name",
+      "wowpedia_url": "https://wowpedia.fandom.com/wiki/UnitName",
+      "description": "Pet name, sourced via UnitName('pet') in Lua.",
+      "used_in": ["game_interfaces/wow.py:get_system_prompt", "game_interfaces/wow.py:get_current_context_string"],
+      "valid": true
+    },
+    {
+      "name": "pet.family",
+      "wowpedia_url": "https://wowpedia.fandom.com/wiki/UnitCreatureFamily",
+      "description": "Pet creature family (e.g. Wolf, Cat), sourced via UnitCreatureFamily('pet') in Lua.",
+      "used_in": ["game_interfaces/wow.py:get_system_prompt", "game_interfaces/wow.py:get_current_context_string"],
+      "valid": true
+    },
+    {
+      "name": "pet.health",
+      "wowpedia_url": "https://wowpedia.fandom.com/wiki/UnitHealth",
+      "description": "Pet health percentage, derived from UnitHealth('pet') / UnitHealthMax('pet') * 100 in Lua.",
+      "used_in": ["game_interfaces/wow.py:check_radiant_triggers", "game_interfaces/wow.py:get_system_prompt"],
+      "valid": true
+    },
+    {
+      "name": "pet.is_dead",
+      "wowpedia_url": "https://wowpedia.fandom.com/wiki/UnitIsDeadOrGhost",
+      "description": "Whether the pet is dead, sourced via UnitIsDeadOrGhost('pet') in Lua.",
+      "used_in": ["game_interfaces/wow.py:check_radiant_triggers", "game_interfaces/wow.py:get_system_prompt"],
+      "valid": true
+    },
+    {
+      "name": "pet.lore",
+      "wowpedia_url": "https://wowpedia.fandom.com/wiki/C_PetJournal.GetPetInfoByPetID",
+      "description": "Pet lore/description text from the Pet Journal, sourced via C_PetJournal.GetPetInfoByPetID() in Lua.",
+      "used_in": ["game_interfaces/wow.py:get_system_prompt"],
+      "valid": true
+    },
+    {
+      "name": "pet.pet_token",
+      "wowpedia_url": "https://wowpedia.fandom.com/wiki/UnitClassification",
+      "description": "Internal token classifying companion type: PET, MOUNT, or COMPANION.",
+      "used_in": ["game_interfaces/wow.py:get_system_prompt", "game_interfaces/wow.py:_score_event"],
+      "valid": true
+    }
+  ],
+  "radiant_event_types": [
+    {
+      "name": "zone",
+      "wowpedia_url": "https://wowpedia.fandom.com/wiki/ZONE_CHANGED_NEW_AREA",
+      "description": "Fired when player enters a new zone/area.",
+      "used_in": ["game_interfaces/wow.py:_generate_reaction", "game_interfaces/wow.py:_score_event"],
+      "valid": true
+    },
+    {
+      "name": "combat",
+      "wowpedia_url": "https://wowpedia.fandom.com/wiki/PLAYER_REGEN_DISABLED",
+      "description": "Fired when player enters combat (regen disabled = combat start).",
+      "used_in": ["game_interfaces/wow.py:_generate_reaction", "game_interfaces/wow.py:_score_event"],
+      "valid": true
+    },
+    {
+      "name": "chat",
+      "wowpedia_url": "https://wowpedia.fandom.com/wiki/CHAT_MSG_SAY",
+      "description": "Fired when a nearby player says something in /say chat.",
+      "used_in": ["game_interfaces/wow.py:_generate_reaction", "game_interfaces/wow.py:_score_event"],
+      "valid": true
+    },
+    {
+      "name": "gossip_show",
+      "wowpedia_url": "https://wowpedia.fandom.com/wiki/GOSSIP_SHOW",
+      "description": "Fired when the player opens a gossip/dialogue window with an NPC.",
+      "used_in": ["game_interfaces/wow.py:_generate_reaction", "game_interfaces/wow.py:_score_event"],
+      "valid": true
+    },
+    {
+      "name": "trade_show",
+      "wowpedia_url": "https://wowpedia.fandom.com/wiki/TRADE_SHOW",
+      "description": "Fired when a trade window is opened with another player.",
+      "used_in": ["game_interfaces/wow.py:_generate_reaction", "game_interfaces/wow.py:_score_event"],
+      "valid": true
+    },
+    {
+      "name": "quest_accepted",
+      "wowpedia_url": "https://wowpedia.fandom.com/wiki/QUEST_ACCEPTED",
+      "description": "Fired when the player accepts a quest.",
+      "used_in": ["game_interfaces/wow.py:_generate_reaction", "game_interfaces/wow.py:_score_event"],
+      "valid": true
+    },
+    {
+      "name": "quest_complete",
+      "wowpedia_url": "https://wowpedia.fandom.com/wiki/QUEST_TURNED_IN",
+      "description": "Fired when the player completes/turns in a quest. Maps to QUEST_TURNED_IN in Lua.",
+      "used_in": ["game_interfaces/wow.py:_generate_reaction", "game_interfaces/wow.py:_score_event"],
+      "valid": true
+    }
+  ]
+}
