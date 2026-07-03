@@ -22,11 +22,18 @@ Reference docs:
 
 import unittest
 from pathlib import Path
+from urllib.parse import urlparse
 
 REPO_ROOT = Path(__file__).parent.parent
 WOW_PY = REPO_ROOT / "game_interfaces" / "wow.py"
 
 BLIZZARD_DEV_PORTAL = "develop.battle.net/documentation/world-of-warcraft"
+WOWPEDIA_HOST = "wowpedia.fandom.com"
+
+
+def _url_host(url):
+    parsed = urlparse(url)
+    return parsed.netloc or parsed.path.split("/", 1)[0]
 
 
 def _source():
@@ -41,7 +48,10 @@ def _wowpedia_or_devportal_in_context(lines, line_index, window=6):
     """Return True if a Wowpedia URL OR Blizzard Dev Portal URL appears within `window` lines above."""
     start = max(0, line_index - window)
     context = "\n".join(lines[start:line_index])
-    return ("wowpedia.fandom.com" in context) or (BLIZZARD_DEV_PORTAL in context)
+    tokens = context.replace("(", " ").replace(")", " ").split()
+    return any(_url_host(token.rstrip(",.")) == WOWPEDIA_HOST for token in tokens) or (
+        BLIZZARD_DEV_PORTAL in context
+    )
 
 
 # ── 1. Blizzard Developer Portal documented as Tier-1b ────────────────────────

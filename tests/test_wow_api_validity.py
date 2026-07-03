@@ -17,12 +17,18 @@ Wowpedia: https://wowpedia.fandom.com/wiki/Wowpedia
 import json
 import re
 from pathlib import Path
+from urllib.parse import urlparse
 
 import pytest
 
 REPO_ROOT = Path(__file__).parent.parent
 REF_FILE = REPO_ROOT / "docs" / "wow_api_reference.json"
 WOW_PY = REPO_ROOT / "game_interfaces" / "wow.py"
+WOWPEDIA_HOST = "wowpedia.fandom.com"
+
+
+def _is_wowpedia_url(url):
+    return urlparse(url).netloc == WOWPEDIA_HOST
 
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────
@@ -74,7 +80,7 @@ class TestReferenceSchema:
         assert "_meta" in api_reference
         meta = api_reference["_meta"]
         assert "source" in meta
-        assert "wowpedia.fandom.com" in meta["source"]
+        assert _is_wowpedia_url(meta["source"])
 
     def test_meta_has_wow_version(self, api_reference):
         """_meta must specify the WoW version this was validated against."""
@@ -100,9 +106,7 @@ class TestReferenceSchema:
         """Every wowpedia_url must point to wowpedia.fandom.com."""
         for entry in all_entries:
             url = entry["wowpedia_url"]
-            assert "wowpedia.fandom.com" in url, (
-                f"Entry '{entry['name']}' has invalid wowpedia_url: {url}"
-            )
+            assert _is_wowpedia_url(url), f"Entry '{entry['name']}' has invalid wowpedia_url: {url}"
 
     def test_all_used_in_are_non_empty(self, all_entries):
         """Every entry must reference at least one file location in used_in."""

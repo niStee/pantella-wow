@@ -12,12 +12,21 @@ Wowpedia: https://wowpedia.fandom.com/wiki/Wowpedia
 
 import re
 from pathlib import Path
+from urllib.parse import urlparse
 
 import pytest
 
 REPO_ROOT = Path(__file__).parent.parent
 LUA_FILE = REPO_ROOT / "MantellaWoW" / "MantellaWoW.lua"
 LUA_DOCS = REPO_ROOT / "docs" / "wow_lua_api_used.md"
+WOWPEDIA_HOST = "wowpedia.fandom.com"
+
+
+def _has_wowpedia_url(text):
+    return any(
+        urlparse(url.rstrip(')].,`"')).netloc == WOWPEDIA_HOST
+        for url in re.findall(r"https://[^\s)\]]+", text)
+    )
 
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────
@@ -54,7 +63,7 @@ class TestLuaDocsExist:
         assert LUA_DOCS.exists()
 
     def test_lua_docs_references_wowpedia(self, lua_docs_source):
-        assert "wowpedia.fandom.com" in lua_docs_source
+        assert _has_wowpedia_url(lua_docs_source)
 
     def test_lua_docs_has_last_reviewed(self, lua_docs_source):
         assert "Last reviewed" in lua_docs_source or "last reviewed" in lua_docs_source
