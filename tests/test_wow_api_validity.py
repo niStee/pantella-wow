@@ -27,12 +27,13 @@ WOW_PY = REPO_ROOT / "game_interfaces" / "wow.py"
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────
 
+
 @pytest.fixture(scope="module")
 def api_reference():
     """Load and return the parsed wow_api_reference.json."""
     assert REF_FILE.exists(), (
-        f"Missing docs/wow_api_reference.json. "
-        f"Create it following the Wowpedia source-of-truth workflow."
+        "Missing docs/wow_api_reference.json. "
+        "Create it following the Wowpedia source-of-truth workflow."
     )
     with open(REF_FILE, encoding="utf-8") as f:
         return json.load(f)
@@ -59,6 +60,7 @@ def all_entries(api_reference):
 
 
 # ── Schema Tests ──────────────────────────────────────────────────────────────
+
 
 class TestReferenceSchema:
     """wow_api_reference.json must be well-formed and complete."""
@@ -92,9 +94,7 @@ class TestReferenceSchema:
         required = {"name", "wowpedia_url", "description", "used_in", "valid"}
         for entry in all_entries:
             missing = required - entry.keys()
-            assert not missing, (
-                f"Entry '{entry.get('name', '?')}' is missing fields: {missing}"
-            )
+            assert not missing, f"Entry '{entry.get('name', '?')}' is missing fields: {missing}"
 
     def test_all_wowpedia_urls_point_to_wowpedia(self, all_entries):
         """Every wowpedia_url must point to wowpedia.fandom.com."""
@@ -110,12 +110,11 @@ class TestReferenceSchema:
             assert isinstance(entry["used_in"], list), (
                 f"Entry '{entry['name']}': used_in must be a list"
             )
-            assert len(entry["used_in"]) > 0, (
-                f"Entry '{entry['name']}': used_in must not be empty"
-            )
+            assert len(entry["used_in"]) > 0, f"Entry '{entry['name']}': used_in must not be empty"
 
 
 # ── Validity Tests ────────────────────────────────────────────────────────────
+
 
 class TestApiValidity:
     """All documented APIs/Events must be marked as valid (not deprecated)."""
@@ -131,12 +130,13 @@ class TestApiValidity:
         """
         deprecated = [e["name"] for e in all_entries if not e.get("valid", True)]
         assert not deprecated, (
-            f"Deprecated APIs found — update the implementation or remove them:\n"
+            "Deprecated APIs found — update the implementation or remove them:\n"
             + "\n".join(f"  - {name}" for name in deprecated)
         )
 
 
 # ── Coverage Tests ────────────────────────────────────────────────────────────
+
 
 class TestCombatLogEventsCoverage:
     """Combat log event subtypes used in wow.py must all be in the reference."""
