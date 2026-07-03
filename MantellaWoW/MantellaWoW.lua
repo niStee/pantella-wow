@@ -87,12 +87,16 @@ local function GetCurrentCompanion()
     if IsMounted() then
         local mountName = "Mount"
         for i = 1, 40 do
-            local name, _, _, _, _, _, _, _, _, spellId = UnitAura("player", i)
-            if name and spellId then
-                local mountID = C_MountJournal.GetMountFromSpell(spellId)
-                if mountID then
-                    mountName = name
-                    break
+            local aura = C_UnitAuras.GetAuraDataByIndex("player", i)
+            if aura then
+                local name = aura.name
+                local spellId = aura.spellId
+                if name and spellId then
+                    local mountID = C_MountJournal.GetMountFromSpell(spellId)
+                    if mountID then
+                        mountName = name
+                        break
+                    end
                 end
             end
         end
@@ -123,8 +127,12 @@ local function GetCurrentCompanion()
             local isDead = UnitIsDead("pet") or false
             if not isDead then
                 local success, result = pcall(function()
-                    local pct = UnitHealthPercent("pet", true, CurveConstants.ScaleTo100)
-                    if pct then return tonumber(string.format("%.0f", pct)) end
+                    local current = UnitHealth("pet")
+                    local max = UnitHealthMax("pet")
+                    if max and max > 0 then
+                        local pct = (current / max) * 100
+                        return tonumber(string.format("%.0f", pct))
+                    end
                     return 100
                 end)
                 if success and result then health = result end

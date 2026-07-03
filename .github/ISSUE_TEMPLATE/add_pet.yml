@@ -1,0 +1,77 @@
+name: "Add Pet / Guardian / Companion Personality"
+description: "Request or contribute a new pet personality to wow.py"
+title: "[Pet] Add <PetFamily> personality"
+labels: ["pet-personality", "wowpedia-required"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Checklist for new pet personalities
+        All fields are required. PRs without verified Wowpedia sources will not be merged.
+
+  - type: input
+    id: family_name
+    attributes:
+      label: Pet Family Name
+      description: "Exact name as it appears in-game (e.g. 'Core Hound', 'Bird of Prey')"
+      placeholder: "e.g. Chimaera"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: spec
+    attributes:
+      label: Wowpedia Specialization
+      description: "Pet spec per https://wowpedia.fandom.com/wiki/Hunter_pet"
+      options:
+        - Ferocity
+        - Tenacity
+        - Cunning
+        - Exotic Ferocity
+        - Exotic Tenacity
+        - Exotic Cunning
+        - Warlock Permanent Minion
+        - Warlock Guardian (Temporary)
+        - Other Class Pet
+        - Battle Pet / Companion
+        - Mount
+    validations:
+      required: true
+
+  - type: input
+    id: wowpedia_url
+    attributes:
+      label: Wowpedia Source URL
+      description: "Direct link to the Wowpedia page for this family (required for merge)"
+      placeholder: "https://wowpedia.fandom.com/wiki/Chimaera_(hunter_pet)"
+    validations:
+      required: true
+
+  - type: textarea
+    id: personality_text
+    attributes:
+      label: Proposed Personality Text
+      description: |
+        Must start with 'You are a <Family>...'
+        Must mention the correct spec (Ferocity / Tenacity / Cunning / etc.)
+        Should include at least one notable ability from the Wowpedia page.
+      placeholder: |
+        You are a Chimaera of Cunning specialization — a two-headed creature of frost and wind...
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Pre-merge checklist
+      options:
+        - label: Wowpedia URL verified and added as code comment above the personality key
+          required: true
+        - label: Correct spec (Ferocity/Tenacity/Cunning) mentioned in the personality text
+          required: true
+        - label: Personality starts with 'You are'
+          required: true
+        - label: Test added in TestHunterSpecCorrectness (or equivalent class) verifying spec keyword
+          required: true
+        - label: docs/API_ASSUMPTIONS.md updated if this introduces a new schema field
+          required: false
