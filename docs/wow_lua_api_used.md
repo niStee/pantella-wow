@@ -46,8 +46,9 @@ When adding new APIs, always follow the TDD workflow in [`docs/wow_events_used.m
 | `UnitCreatureType("pet")` | [link](https://wowpedia.fandom.com/wiki/UnitCreatureType) | `GetCurrentCompanion` |
 | `UnitIsPlayer(unit)` | [link](https://wowpedia.fandom.com/wiki/UnitIsPlayer) | `UpdateSocialState` |
 | `UnitReaction("player", unit)` | [link](https://wowpedia.fandom.com/wiki/UnitReaction) | `UpdateSocialState` |
-| `UnitAura("player", i)` | [link](https://wowpedia.fandom.com/wiki/UnitAura) | `GetCurrentCompanion` (mount detection) |
-| `UnitHealthPercent("pet", ...)` | [link](https://wowpedia.fandom.com/wiki/UnitHealthPercent) | `GetCurrentCompanion` |
+| `C_UnitAuras.GetAuraDataByIndex("player", i)` | [link](https://wowpedia.fandom.com/wiki/C_UnitAuras.GetAuraDataByIndex) | `GetCurrentCompanion` (mount detection) |
+| `UnitHealth("pet")` | [link](https://wowpedia.fandom.com/wiki/UnitHealth) | `GetCurrentCompanion` |
+| `UnitHealthMax("pet")` | [link](https://wowpedia.fandom.com/wiki/UnitHealthMax) | `GetCurrentCompanion` |
 
 ---
 
@@ -97,10 +98,10 @@ When adding new APIs, always follow the TDD workflow in [`docs/wow_events_used.m
 
 ---
 
-## ⚠️ Known Issues / Deprecation Watch
+## ✅ Resolved / Deprecation Watch
 
 | API | Status | Notes |
 |---|---|---|
-| `UnitAura("player", i)` | ⚠️ Changed in 10.1 | Consider migrating to `C_UnitAuras.GetAuraDataByIndex()` — see [Wowpedia](https://wowpedia.fandom.com/wiki/C_UnitAuras.GetAuraDataByIndex) |
-| `UnitHealthPercent` with `CurveConstants` | ⚠️ Verify | `CurveConstants.ScaleTo100` — confirm this constant exists in current API |
-| `UnitIsDead` | ✅ Valid | Prefer over `UnitIsDeadOrGhost` for pets |
+| `UnitAura("player", i)` | ✅ Migrated | Replaced with `C_UnitAuras.GetAuraDataByIndex()` — see [Wowpedia](https://wowpedia.fandom.com/wiki/C_UnitAuras.GetAuraDataByIndex) |
+| `UnitHealthPercent` with `CurveConstants` | ✅ Migrated | Replaced with `UnitHealth("pet") / UnitHealthMax("pet")` |
+| `UnitIsDead` | ✅ Valid | Used for pet death detection |
