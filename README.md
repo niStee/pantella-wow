@@ -8,7 +8,7 @@
 
 World of Warcraft integration for [Pantella](https://github.com/Pathos14489/Pantella) (a powerful LLM-bridge for gaming), inspired by the original [Mantella](https://github.com/art-from-the-machine/Mantella) project. 
 
-Experience real-time radiant AI conversations with NPCs and your pets directly inside the game, triggered dynamically by your Combat Log and in-game events!
+Experience radiant AI conversations with NPCs and your pets directly inside the game, triggered by combat-log events today and designed for a pixel-encoded live-state channel next.
 
 ## Installation
 
@@ -22,7 +22,8 @@ Experience real-time radiant AI conversations with NPCs and your pets directly i
 
 ## Features
 
-- **Real-time Combat Log Integration**: Triggers radiant conversations based on in-game events (combat, taking damage, killing mobs).
+- **Combat Log Integration**: Triggers radiant conversations based on bounded combat events (combat, taking damage, killing mobs).
+- **Planned Pixel IPC**: The target live-state bridge is a pixel-encoded channel captured by the Python backend; see `docs/ADR-001-ipc-transport.md`.
 - **In-Game Overlay UI**: A transparent, always-on-top Tkinter overlay that displays what your pets and NPCs are saying directly on your screen without tabbing out.
 - **Pet Personality**: Dynamic prompt injection based on your WoW Pet's active family (e.g., Cat, Bear, Raptor).
 
@@ -30,7 +31,7 @@ Experience real-time radiant AI conversations with NPCs and your pets directly i
 
 - `pywin32>=306`
 - `watchdog>=3.0`
-- Windows OS (for EditBox scraping and transparent Overlay UI)
+- Windows OS (for transparent Overlay UI and the planned Windows Graphics Capture/DXGI pixel transport)
 
 ## Development
 

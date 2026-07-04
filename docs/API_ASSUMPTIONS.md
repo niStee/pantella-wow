@@ -39,7 +39,7 @@ For any API added post-10.1.7, use Tier 1b (`develop.battle.net`) or 1c (Townlon
 | `QUEST_TURNED_IN` | `_generate_reaction` — quest_complete | [Wowpedia](https://wowpedia.fandom.com/wiki/QUEST_TURNED_IN) | [Dev Portal Events](https://develop.battle.net/documentation/world-of-warcraft) | ✅ |
 | `CHAT_MSG_SAY` | `_generate_reaction` — chat | [Wowpedia](https://wowpedia.fandom.com/wiki/CHAT_MSG_SAY) | [Dev Portal Events](https://develop.battle.net/documentation/world-of-warcraft) | ✅ |
 | `COMBAT_LOG_EVENT` | `_read_combat_log_delta` | [Wowpedia](https://wowpedia.fandom.com/wiki/COMBAT_LOG_EVENT) | [Dev Portal Events](https://develop.battle.net/documentation/world-of-warcraft) | ✅ |
-| `WM_GETTEXT` / `WM_GETTEXTLENGTH` | `_read_editbox_text` | Win32 API (stable) | N/A | ✅ |
+| `WM_GETTEXT` / `WM_GETTEXTLENGTH` | Legacy `_read_editbox_text` prototype | Win32 API only; not a WoW Lua-frame bridge | N/A | ❌ Retired |
 
 ### When Tier 1b (develop.battle.net) takes priority over Wowpedia
 
@@ -79,7 +79,7 @@ DBM:RegisterCallback("DBM_TimerStop",  function(id) end)
 
 **Required work before DBM tests can be un-skipped:**
 1. Implement `DBM:RegisterCallback("DBM_TimerUpdate", ...)` in `MantellaWoW/MantellaWoW.lua`
-2. Serialize as `{addon="DBM", name=name, elapsed=elapsed, total=total}` into EditBox JSON
+2. Serialize as `{addon="DBM", name=name, elapsed=elapsed, total=total}` into the channel-neutral IPC envelope
 3. Update `check_radiant_triggers` to use `total - elapsed`
 4. Update test skip message with resolved issue number
 
@@ -106,7 +106,7 @@ BigWigsLoader:RegisterMessage("BigWigs_StartBar", function(event, module, id, te
 end)
 ```
 
-**Proposed serialization to EditBox JSON:**
+**Proposed payload inside the channel-neutral IPC envelope:**
 ```json
 {"addon": "BigWigs", "id": "<id>", "name": "<text>", "duration": 12.0, "elapsed": 3.5}
 ```
@@ -118,6 +118,21 @@ end)
 - ⚠️ Users need BigWigs installed (separate from DBM) — document in README
 
 **Recommendation:** Implement BigWigs first. Add DBM as optional parallel path once BigWigs works.
+
+---
+
+## Addon-to-Backend IPC Transport
+
+Decision record: [`ADR-001: Addon-to-Backend IPC Transport`](ADR-001-ipc-transport.md)
+
+| Channel | Role | Status | Notes |
+|---|---|---|---|
+| Pixel encoding | Primary live-state transport | Target architecture | Addon renders framed RGB data; Python captures the WoW window through WGC/DXGI. |
+| Combat log addon messages | Secondary event/fallback transport | Tactical proof allowed | Small, bounded messages only; constrained by payload limits, throttling, channels, and gameplay context. |
+| SavedVariables | Persistence and recovery | Fallback only | Not live IPC; WoW flushes these on reload/logout, not continuously during gameplay. |
+| `WM_GETTEXT` / `EnumChildWindows` | Legacy prototype | Retired | WoW Lua UI frames are not Win32 child controls, so an addon `EditBox` is not readable through Win32 text APIs. |
+
+All transports must decode to the same normalized message envelope before backend logic consumes the data.
 
 ---
 
