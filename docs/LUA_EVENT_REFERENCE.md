@@ -63,13 +63,17 @@ Enforced by `tests/test_api_assumptions.py`.
 
 ---
 
-## Win32 APIs in `_read_editbox_text`
+## Retired Win32 EditBox Prototype
+
+WoW 12.0.7 exposes the main process window as `waApplication Window`, but addon-created Lua frames are not Win32 child controls. `EnumChildWindows` does not expose a Lua `EditBox`, so `WM_GETTEXT` and `WM_GETTEXTLENGTH` are not valid addon-to-backend IPC for live WoW state.
+
+The accepted transport decision is documented in [`ADR-001: Addon-to-Backend IPC Transport`](ADR-001-ipc-transport.md): pixel encoding is the target primary live-state channel, combat-log addon messages are secondary/fallback events, and SavedVariables are persistence/recovery only.
 
 | Function | Purpose | Source |
 |---|---|---|
-| `WM_GETTEXT` | Read EditBox text | Win32 API (stable, not WoW-specific) |
-| `WM_GETTEXTLENGTH` | Get text buffer length | Win32 API |
-| `GxWindowClass` | WoW main window class name | Stable since WoW 1.x |
+| `WM_GETTEXT` | Legacy prototype for real Win32 text controls | Win32 API; retired for WoW Lua frames |
+| `WM_GETTEXTLENGTH` | Legacy prototype for real Win32 text controls | Win32 API; retired for WoW Lua frames |
+| `waApplication Window` | Current WoW 12.0.7 main window class | Valid capture target, not an IPC surface |
 
 ---
 
