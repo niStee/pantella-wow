@@ -5,29 +5,7 @@
     "last_reviewed": "2026-06-22",
     "wow_version": "11.x (The War Within)"
   },
-  "combat_log_events": [
-    {
-      "name": "SPELL_CAST_SUCCESS",
-      "wowpedia_url": "https://wowpedia.fandom.com/wiki/COMBAT_LOG_EVENT",
-      "description": "Fired when a spell cast succeeds. Subtype of COMBAT_LOG_EVENT_UNFILTERED.",
-      "used_in": ["game_interfaces/wow.py:_read_combat_log_delta", "game_interfaces/wow.py:_poll_combat_log_fallback"],
-      "valid": true
-    },
-    {
-      "name": "UNIT_DIED",
-      "wowpedia_url": "https://wowpedia.fandom.com/wiki/COMBAT_LOG_EVENT",
-      "description": "Fired when a unit dies. Subtype of COMBAT_LOG_EVENT_UNFILTERED.",
-      "used_in": ["game_interfaces/wow.py:_read_combat_log_delta", "game_interfaces/wow.py:_poll_combat_log_fallback"],
-      "valid": true
-    },
-    {
-      "name": "SPELL_AURA_APPLIED",
-      "wowpedia_url": "https://wowpedia.fandom.com/wiki/COMBAT_LOG_EVENT",
-      "description": "Fired when a buff/debuff aura is applied to a unit.",
-      "used_in": ["game_interfaces/wow.py:_read_combat_log_delta", "game_interfaces/wow.py:_poll_combat_log_fallback"],
-      "valid": true
-    }
-  ],
+  "combat_log_events": [],
   "game_state_fields": [
     {
       "name": "player_name",

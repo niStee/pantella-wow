@@ -55,6 +55,23 @@ local function ToJSON(obj)
     return "null"
 end
 
+-- Wowpedia: https://wowpedia.fandom.com/wiki/API_C_ChatInfo.SendAddonMessage
+-- Sends a logged addon message that appears in WoWCombatLog.txt
+-- Reuses the existing ToJSON() encoder; the encoded payload must stay under 255 bytes.
+local function SendPantellaMessage(messageType, payload)
+    local data = {
+        version = 1,
+        type = messageType,
+        payload = payload,
+    }
+    local encoded = ToJSON(data)
+    if #encoded > 255 then
+        print("|cffff8000[MantellaWoW]|r SendPantellaMessage: payload too large (" .. #encoded .. " bytes), skipping")
+        return
+    end
+    C_ChatInfo.SendAddonMessageLogged("PANTELLA", encoded, "WHISPER", UnitName("player"))
+end
+
 local function InitializeAddon()
     if not MantellaWoWDB then
         MantellaWoWDB = defaults
@@ -356,6 +373,7 @@ frame:RegisterEvent("PLAYER_LOGOUT")
 frame:SetScript("OnEvent", function(self, event, arg1)
     if event == "ADDON_LOADED" and arg1 == addonName then
         InitializeAddon()
+        C_ChatInfo.RegisterAddonMessagePrefix("PANTELLA")
     elseif event == "PLAYER_LOGIN" then
         C_Timer.NewTicker(1.0, OnUpdate)
     elseif event == "PLAYER_LOGOUT" then

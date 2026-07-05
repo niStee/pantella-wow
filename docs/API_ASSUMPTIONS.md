@@ -39,6 +39,8 @@ For any API added post-10.1.7, use Tier 1b (`develop.battle.net`) or 1c (Townlon
 | `QUEST_TURNED_IN` | `_generate_reaction` — quest_complete | [Wowpedia](https://wowpedia.fandom.com/wiki/QUEST_TURNED_IN) | [Dev Portal Events](https://develop.battle.net/documentation/world-of-warcraft) | ✅ |
 | `CHAT_MSG_SAY` | `_generate_reaction` — chat | [Wowpedia](https://wowpedia.fandom.com/wiki/CHAT_MSG_SAY) | [Dev Portal Events](https://develop.battle.net/documentation/world-of-warcraft) | ✅ |
 | `COMBAT_LOG_EVENT` | `_read_combat_log_delta` | [Wowpedia](https://wowpedia.fandom.com/wiki/COMBAT_LOG_EVENT) | [Dev Portal Events](https://develop.battle.net/documentation/world-of-warcraft) | ✅ |
+| `C_ChatInfo.SendAddonMessageLogged(prefix, text, chatType, target)` | `SendPantellaMessage` in `MantellaWoW.lua` | [Wowpedia (SendAddonMessage)](https://wowpedia.fandom.com/wiki/API_C_ChatInfo.SendAddonMessage) | [Dev Portal](https://develop.battle.net/documentation/world-of-warcraft) | ✅ |
+| `C_ChatInfo.RegisterAddonMessagePrefix(prefix)` | `InitializeAddon` in `MantellaWoW.lua` | [Wowpedia](https://wowpedia.fandom.com/wiki/API_C_ChatInfo.RegisterAddonMessagePrefix) | [Dev Portal](https://develop.battle.net/documentation/world-of-warcraft) | ✅ |
 | `WM_GETTEXT` / `WM_GETTEXTLENGTH` | Legacy `_read_editbox_text` prototype | Win32 API only; not a WoW Lua-frame bridge | N/A | ❌ Retired |
 
 ### When Tier 1b (develop.battle.net) takes priority over Wowpedia
@@ -127,8 +129,8 @@ Decision record: [`ADR-001: Addon-to-Backend IPC Transport`](ADR-001-ipc-transpo
 
 | Channel | Role | Status | Notes |
 |---|---|---|---|
-| Pixel encoding | Primary live-state transport | Target architecture | Addon renders framed RGB data; Python captures the WoW window through WGC/DXGI. |
-| Combat log addon messages | Secondary event/fallback transport | Tactical proof allowed | Small, bounded messages only; constrained by payload limits, throttling, channels, and gameplay context. |
+| Combat log addon messages | Primary live-state transport | Production | `C_ChatInfo.SendAddonMessageLogged` carries structured event messages tailed from `WoWCombatLog.txt`. 255-byte payload limit managed by chunking/sequence reassembly. Latency 100–300 ms. |
+| Pixel encoding | Optional high-frequency supplement | Conditional prototype | If combat-log throughput proves insufficient for high-frequency state deltas, a pixel strip transport may be added. **Not to be built speculatively.** |
 | SavedVariables | Persistence and recovery | Fallback only | Not live IPC; WoW flushes these on reload/logout, not continuously during gameplay. |
 | `WM_GETTEXT` / `EnumChildWindows` | Legacy prototype | Retired | WoW Lua UI frames are not Win32 child controls, so an addon `EditBox` is not readable through Win32 text APIs. |
 
