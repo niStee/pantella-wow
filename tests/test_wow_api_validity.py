@@ -145,11 +145,7 @@ class TestApiValidity:
 class TestCombatLogEventsCoverage:
     """Combat log event subtypes used in wow.py must all be in the reference."""
 
-    KNOWN_COMBAT_LOG_SUBTYPES = [
-        "SPELL_CAST_SUCCESS",
-        "UNIT_DIED",
-        "SPELL_AURA_APPLIED",
-    ]
+    KNOWN_COMBAT_LOG_SUBTYPES = []
 
     def test_combat_log_events_section_exists(self, api_reference):
         assert "combat_log_events" in api_reference

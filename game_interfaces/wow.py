@@ -1,3 +1,4 @@
+import asyncio
 import json
 import os
 import re
@@ -12,6 +13,8 @@ if (
     sys.path.insert(0, addon_root)
 
 from src.game_interfaces.base_interface import BaseGameInterface  # noqa: E402
+
+from game_interfaces.transport.combat_log import CombatLogTransport  # noqa: E402
 
 valid_games = ["wow"]
 interface_slug = "wow_game_interface"
@@ -33,13 +36,11 @@ except ImportError:
     WINSOUND_AVAILABLE = False
 
 try:
-    from watchdog.events import FileSystemEventHandler
-    from watchdog.observers import Observer
+    from importlib.util import find_spec
 
-    WATCHDOG_AVAILABLE = True
+    WATCHDOG_AVAILABLE = find_spec("watchdog") is not None
 except ImportError:
     WATCHDOG_AVAILABLE = False
-    FileSystemEventHandler = object  # type: ignore
 
 
 # ── Prompt Injection Sanitisation ─────────────────────────────────────────────
@@ -67,15 +68,6 @@ def _sanitise(value: str, max_len: int = 128) -> str:
     return value.strip()
 
 
-class CombatLogHandler(FileSystemEventHandler):
-    def __init__(self, interface):
-        self.interface = interface
-
-    def on_modified(self, event):
-        if event.src_path == self.interface.combat_log_path:
-            self.interface._read_combat_log_delta()
-
-
 class WoWGameInterface(BaseGameInterface):
     """Windows-native WoW interface with pet integration, overlay, and radiant triggers."""
 
@@ -95,8 +87,9 @@ class WoWGameInterface(BaseGameInterface):
         self._last_processed_event_id = 0
         self.overlay = None
         self._init_overlay()
-        self._combat_observer = None
-        self._init_combat_log_watcher()
+        self._combat_transport = None
+        self._combat_task = None
+        self._start_combat_transport()
 
     # ── Overlay ──────────────────────────────────────────────────────────
     def _init_overlay(self):
@@ -118,7 +111,8 @@ class WoWGameInterface(BaseGameInterface):
         if self.overlay:
             self.overlay.update_title(title)
 
-    # ── Combat Log (Watchdog) ────────────────────────────────────────────
+    # ── Combat Log (Transport) ────────────────────────────────────────────
+    # Wowpedia: https://wowpedia.fandom.com/wiki/COMBAT_LOG_EVENT
     def _find_combat_log(self):
         paths = [
             r"C:\Program Files (x86)\World of Warcraft\_retail_\Logs\WoWCombatLog.txt",
@@ -131,43 +125,38 @@ class WoWGameInterface(BaseGameInterface):
                 return p
         return None
 
-    def _init_combat_log_watcher(self):
+    def _start_combat_transport(self):
+        """Create and start the CombatLogTransport if the log file is available.
+
+        The drain task is started lazily from ``load_game_state()`` when an
+        event loop is running, because ``__init__`` is synchronous and may be
+        called before ``asyncio`` is active.
+        """
+        if self._combat_transport is not None:
+            return
         if not WATCHDOG_AVAILABLE or not self.combat_log_path:
             return
-        handler = CombatLogHandler(self)
-        self._combat_observer = Observer()
-        self._combat_observer.schedule(
-            handler, path=os.path.dirname(self.combat_log_path), recursive=False
-        )
-        self._combat_observer.start()
-
-    def _read_combat_log_delta(self):
-        # Wowpedia: https://wowpedia.fandom.com/wiki/COMBAT_LOG_EVENT
+        self._combat_transport = CombatLogTransport(self.combat_log_path)
         try:
-            current_size = os.path.getsize(self.combat_log_path)
-            if current_size <= self.combat_log_offset:
-                return
-            with open(self.combat_log_path, encoding="utf-8", errors="replace") as f:
-                f.seek(self.combat_log_offset)
-                lines = f.readlines()
-                self.combat_log_offset = f.tell()
-                for line in lines:
-                    line = line.strip()
-                    if not line:
-                        continue
-                    # Combat-log sub-events (see https://wowpedia.fandom.com/wiki/SPELL_CAST_SUCCESS)
-                    if (
-                        "SPELL_CAST_SUCCESS" in line
-                        or "UNIT_DIED" in line
-                        or "SPELL_AURA_APPLIED" in line
-                    ):
-                        self.combat_events.append(line)
-                        if len(self.combat_events) > 5:
-                            self.combat_events.pop(0)
-        except OSError as e:
-            print(f"[ERROR] Combat log delta: {e}")
-        except ValueError as e:
-            print(f"[ERROR] Combat log encoding: {e}")
+            loop = asyncio.get_running_loop()
+            self._combat_task = loop.create_task(self._drain_combat_log())
+        except RuntimeError:
+            pass
+
+    async def _drain_combat_log(self):
+        """Drain the combat-log transport into ``self.combat_events``."""
+        if self._combat_transport is None:
+            return
+        await self._combat_transport.start()
+        async for envelope in self._combat_transport.read():
+            self._append_combat_event(envelope)
+
+    def _append_combat_event(self, envelope):
+        """Record a combat-log envelope, keeping only the most recent five."""
+        event_string = json.dumps(envelope.to_dict(), separators=(",", ":"))
+        self.combat_events.append(event_string)
+        if len(self.combat_events) > 5:
+            self.combat_events.pop(0)
 
     # ── EditBox State Reading ──────────────────────────────────────────────
     def _find_wow_window(self):
@@ -293,38 +282,12 @@ class WoWGameInterface(BaseGameInterface):
                 state = json.loads(text)
             except json.JSONDecodeError:
                 state = {"raw_state": text[:500]}
-        self._poll_combat_log_fallback()
+        self._start_combat_transport()
         if self.combat_events:
             state["combat_events"] = self.combat_events[-5:]
         self.game_state = state
         self._process_radiant_triggers()
         return state
-
-    def _poll_combat_log_fallback(self):
-        if WATCHDOG_AVAILABLE or not self.combat_log_path:
-            return
-        try:
-            with open(self.combat_log_path, encoding="utf-8", errors="replace") as f:
-                if self.combat_log_offset == 0:
-                    f.seek(0, 2)
-                    self.combat_log_offset = f.tell()
-                    return
-                f.seek(self.combat_log_offset)
-                lines = f.readlines()
-                self.combat_log_offset = f.tell()
-                for line in lines:
-                    line = line.strip()
-                    # Combat-log sub-events (see https://wowpedia.fandom.com/wiki/SPELL_CAST_SUCCESS)
-                    if (
-                        "SPELL_CAST_SUCCESS" in line
-                        or "UNIT_DIED" in line
-                        or "SPELL_AURA_APPLIED" in line
-                    ):
-                        self.combat_events.append(line)
-                        if len(self.combat_events) > 5:
-                            self.combat_events.pop(0)
-        except OSError as e:
-            print(f"[ERROR] Combat log fallback: {e}")
 
     def _process_radiant_triggers(self):
         triggers = self.check_radiant_triggers()
@@ -885,6 +848,13 @@ class WoWGameInterface(BaseGameInterface):
     def shutdown(self):
         if self.overlay:
             self.overlay.stop()
-        if self._combat_observer:
-            self._combat_observer.stop()
-            self._combat_observer.join()
+        if self._combat_task:
+            self._combat_task.cancel()
+            self._combat_task = None
+        if self._combat_transport:
+            try:
+                loop = asyncio.get_running_loop()
+                loop.create_task(self._combat_transport.stop())
+            except RuntimeError:
+                pass
+            self._combat_transport = None

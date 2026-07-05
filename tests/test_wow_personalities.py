@@ -106,7 +106,7 @@ EXPECTED_MOUNT_KEYWORDS = {"drake", "horse", "wolf", "mech", "turtle", "chicken"
 def make_interface():
     with (
         patch.object(WoWGameInterface, "_init_overlay"),
-        patch.object(WoWGameInterface, "_init_combat_log_watcher"),
+        patch.object(WoWGameInterface, "_start_combat_transport"),
         patch.object(WoWGameInterface, "_find_combat_log", return_value=None),
     ):
         iface = WoWGameInterface.__new__(WoWGameInterface)
@@ -123,6 +123,8 @@ def make_interface():
         iface.pet_was_dead = False
         iface.radiant_queue = []
         iface._last_processed_event_id = 0
+        iface._combat_transport = None
+        iface._combat_task = None
         iface.game_state = {}
         return iface
 
