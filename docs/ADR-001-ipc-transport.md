@@ -2,7 +2,11 @@
 
 ## Status
 
-Accepted for the next implementation pass.
+**Milestones 1–2 implemented.** This slice (2026-07-05) delivers:
+1. Normalized message-envelope definition and Python-side transport interface (`game_interfaces/transport/combat_log.py`).
+2. Combat-log proof: `C_ChatInfo.SendAddonMessageLogged` emits bounded JSON event messages from `MantellaWoW.lua`; the Python backend tails `WoWCombatLog.txt` via `watchdog` and parses through the envelope.
+
+Chunking and sequence reassembly (255-byte payload limit management) are **deferred to a future slice**.
 
 ## Revision History
 
@@ -10,6 +14,7 @@ Accepted for the next implementation pass.
 |---|---|
 | 2026-07-03 | Initial version: pixel encoding as primary, combat log as secondary. |
 | 2026-07-04 | Revised transport priority after prior art review. Combat log promoted to primary; pixel encoding demoted to optional high-frequency supplement. Envelope clarifications added (timestamp ownership, sequence ownership, checksum requirements). |
+| 2026-07-05 | Slice 1 implementation: Milestones 1-2 delivered. Chunking/reassembly marked deferred. Status updated from "Accepted" to "Milestones 1-2 implemented". |
 
 ## Context
 
@@ -80,9 +85,11 @@ Transport-specific framing may differ, but normalized backend events must preser
 
 ## Implementation Milestones
 
-1. Define the normalized message envelope and Python-side transport interface (channel-neutral).
-2. Build a combat-log proof: emit a small bounded event message via `SendAddonMessageLogged`, tail `WoWCombatLog.txt` in Python, parse through the envelope. This is the transport that must be production-ready.
-3. Build SavedVariables bulk channel: write full state snapshot on `/reload`, read from Python on file change.
-4. Add channel health reporting so the backend can expose which transports are active, degraded, or unavailable.
-5. Keep SavedVariables limited to configuration handoff, last-known state, and reload recovery.
+1. ✅ Define the normalized message envelope and Python-side transport interface (channel-neutral). **Delivered 2026-07-05.**
+2. ✅ Build a combat-log proof: emit a small bounded event message via `SendAddonMessageLogged`, tail `WoWCombatLog.txt` in Python, parse through the envelope. This is the transport that must be production-ready. **Delivered 2026-07-05.**
+3. ⬜ Build SavedVariables bulk channel: write full state snapshot on `/reload`, read from Python on file change.
+4. ⬜ Add channel health reporting so the backend can expose which transports are active, degraded, or unavailable.
+5. ⬜ Keep SavedVariables limited to configuration handoff, last-known state, and reload recovery.
 6. *(Conditional on milestone 2 proving insufficient)* Build a pixel-encoding prototype with sequence, length, version, and mandatory checksum framing. Validate across: 1080p and 4K, windowed and fullscreen, UI scale 0.64–1.0, one active overlay (e.g. Discord), and minimised-window behaviour. All axes must pass before pixel transport is promoted to active use. Pixel capture component lives in `overlay.py`.
+
+> **Chunking and sequence reassembly** (needed to handle the 255-byte per-message limit of `SendAddonMessageLogged`) are **deferred** to a future slice. Current implementation emits single-message payloads only; multi-message payloads are silently dropped if they exceed the byte limit. This will be addressed when throughput requirements are characterized.

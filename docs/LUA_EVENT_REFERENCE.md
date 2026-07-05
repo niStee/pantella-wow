@@ -53,13 +53,42 @@ Enforced by `tests/test_api_assumptions.py`.
 
 ---
 
-## Combat Log Events in `_read_combat_log_delta`
+## Retired Combat Log Watcher
+
+The legacy combat-log subtype scraper (`_read_combat_log_delta`) has been replaced by the channel-neutral `CombatLogTransport` and the `C_ChatInfo.SendAddonMessageLogged` addon-message channel. See the `C_ChatInfo Addon Message APIs` section above and [`ADR-001`](ADR-001-ipc-transport.md) for the current architecture.
+
+The `COMBAT_LOG_EVENT` family is still the underlying WoW event namespace; the `Wowpedia` reference below remains the canonical source for combat log event subtypes.
 
 | Log event | Purpose | Source |
 |---|---|---|
-| `SPELL_CAST_SUCCESS` | Ability cast tracking | [Wowpedia COMBAT_LOG_EVENT](https://wowpedia.fandom.com/wiki/COMBAT_LOG_EVENT) |
-| `UNIT_DIED` | Death events | [Wowpedia COMBAT_LOG_EVENT](https://wowpedia.fandom.com/wiki/COMBAT_LOG_EVENT) |
-| `SPELL_AURA_APPLIED` | Buff/debuff tracking | [Wowpedia COMBAT_LOG_EVENT](https://wowpedia.fandom.com/wiki/COMBAT_LOG_EVENT) |
+| `COMBAT_LOG_EVENT` | Combat log event namespace | [Wowpedia COMBAT_LOG_EVENT](https://wowpedia.fandom.com/wiki/COMBAT_LOG_EVENT) |
+
+---
+
+## C_ChatInfo Addon Message APIs (Primary Live-State Transport)
+
+`C_ChatInfo.SendAddonMessageLogged` and `C_ChatInfo.RegisterAddonMessagePrefix` are the
+primary live-state transport for the addon-to-backend IPC layer.
+See [`ADR-001: Addon-to-Backend IPC Transport`](ADR-001-ipc-transport.md) for the full decision.
+
+| API / Event | Used in | Primary Source | Blizzard Dev Portal |
+|---|---|---|---|
+| `C_ChatInfo.SendAddonMessageLogged(prefix, text, chatType, target)` | `SendPantellaMessage` (MantellaWoW.lua:72) | [Wowpedia (SendAddonMessage)](https://wowpedia.fandom.com/wiki/API_C_ChatInfo.SendAddonMessage) | [Dev Portal](https://develop.battle.net/documentation/world-of-warcraft) |
+| `C_ChatInfo.RegisterAddonMessagePrefix(prefix)` | `InitializeAddon` (MantellaWoW.lua:376) | [Wowpedia](https://wowpedia.fandom.com/wiki/API_C_ChatInfo.RegisterAddonMessagePrefix) | [Dev Portal](https://develop.battle.net/documentation/world-of-warcraft) |
+
+**Source comment in `MantellaWoW.lua`:**
+```lua
+-- Wowpedia: https://wowpedia.fandom.com/wiki/API_C_ChatInfo.SendAddonMessage
+-- Sends a logged addon message that appears in WoWCombatLog.txt
+-- Reuses the existing ToJSON() encoder; the encoded payload must stay under 255 bytes.
+```
+
+The `SendAddonMessageLogged` variant writes addon messages directly to `Logs/WoWCombatLog.txt`,
+which the Python backend tails via `watchdog` polling. This is the same mechanism used by
+WarcraftLogs, ACT, and other raid-logging tools, proven at scale with zero Win32 dependency.
+
+**Payload limit:** 255 bytes per message (Blizzard-enforced). Chunking and sequence reassembly
+are deferred to a future slice (see ADR-001 Milestones).
 
 ---
 
@@ -67,7 +96,9 @@ Enforced by `tests/test_api_assumptions.py`.
 
 WoW 12.0.7 exposes the main process window as `waApplication Window`, but addon-created Lua frames are not Win32 child controls. `EnumChildWindows` does not expose a Lua `EditBox`, so `WM_GETTEXT` and `WM_GETTEXTLENGTH` are not valid addon-to-backend IPC for live WoW state.
 
-The accepted transport decision is documented in [`ADR-001: Addon-to-Backend IPC Transport`](ADR-001-ipc-transport.md): pixel encoding is the target primary live-state channel, combat-log addon messages are secondary/fallback events, and SavedVariables are persistence/recovery only.
+The accepted transport decision is documented in [`ADR-001: Addon-to-Backend IPC Transport`](ADR-001-ipc-transport.md):
+combat-log addon messages are the primary live-state channel, pixel encoding is an optional
+high-frequency supplement (not to be built speculatively), and SavedVariables are persistence/recovery only.
 
 | Function | Purpose | Source |
 |---|---|---|
