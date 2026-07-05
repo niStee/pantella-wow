@@ -78,6 +78,8 @@ globals = {
     "C_UnitAuras",
     -- https://wowpedia.fandom.com/wiki/C_Map
     "C_Map",
+    -- https://wowpedia.fandom.com/wiki/API_C_ChatInfo
+    "C_ChatInfo",
 
     -- ── Frame & Widget APIs ──────────────────────────────────────────────
     -- https://wowpedia.fandom.com/wiki/CreateFrame
