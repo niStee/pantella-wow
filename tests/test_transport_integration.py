@@ -101,7 +101,9 @@ class TestCombatLogIntegration:
             assert envelopes[2].payload == {"pet_name3": "Boo"}
 
             # Timestamps should be monotonic
-            assert envelopes[0].timestamp_ms <= envelopes[1].timestamp_ms <= envelopes[2].timestamp_ms
+            assert (
+                envelopes[0].timestamp_ms <= envelopes[1].timestamp_ms <= envelopes[2].timestamp_ms
+            )
         finally:
             await transport.stop()
 

@@ -143,9 +143,7 @@ class TestCombatLogTransportParsing:
         await transport.start()
         try:
             log_path.write_text(
-                "7/5 12:00:00.100  COMBAT_LOG_EVENT: SPELL_DAMAGE...\n"
-                + CANONICAL_LINE
-                + "\n",
+                "7/5 12:00:00.100  COMBAT_LOG_EVENT: SPELL_DAMAGE...\n" + CANONICAL_LINE + "\n",
                 encoding="utf-8",
             )
             envelopes = await _collect(transport, expected=1, timeout_s=1.0)
