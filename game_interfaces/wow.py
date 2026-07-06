@@ -71,8 +71,8 @@ def _sanitise(value: str, max_len: int = 128) -> str:
 class WoWGameInterface(BaseGameInterface):
     """Windows-native WoW interface with pet integration, overlay, and radiant triggers."""
 
-    def __init__(self, conversation_manager):
-        super().__init__(conversation_manager)
+    def __init__(self, conversation_manager, valid_games, interface_slug):
+        super().__init__(conversation_manager, valid_games, interface_slug)
         self.wow_window = None
         self.editbox_hwnd = None
         self.combat_log_path = self._find_combat_log()
@@ -85,6 +85,7 @@ class WoWGameInterface(BaseGameInterface):
         self.pet_was_dead = False
         self.radiant_queue = []
         self._last_processed_event_id = 0
+        self._last_processed_input_id = 0
         self.overlay = None
         self._init_overlay()
         self._combat_transport = None
@@ -162,7 +163,7 @@ class WoWGameInterface(BaseGameInterface):
     def _find_wow_window(self):
         if not WIN32_AVAILABLE:
             return None
-        self.wow_window = win32gui.FindWindow("GxWindowClass", None)
+        self.wow_window = win32gui.FindWindow("waApplication Window", None)
         if not self.wow_window:
             return None
 
@@ -812,6 +813,35 @@ class WoWGameInterface(BaseGameInterface):
         state = getattr(self, "game_state", {})
         return not state.get("player_name") and self.editbox_hwnd is not None
 
+    def get_text_input(self):
+        """Read player input from the WoW addon's /cm slash command.
+
+        The Lua addon stores each `/cm <message>` as `player_input` and increments
+        `player_input_id`. We poll the EditBox state and process any input whose id
+        is greater than the last processed one. Falls back to stdin in an interactive
+        terminal for testing.
+        """
+        import time
+
+        poll_deadline = time.time() + 15
+        while True:
+            state = self.load_game_state()
+            input_id = state.get("player_input_id", 0)
+            player_input = state.get("player_input")
+            if (
+                input_id
+                and input_id > self._last_processed_input_id
+                and player_input
+                and str(player_input).strip()
+            ):
+                self._last_processed_input_id = input_id
+                print(f"[WoW] Received [{input_id}]: {player_input}")
+                return str(player_input).strip()
+            if time.time() > poll_deadline and sys.stdin and sys.stdin.isatty():
+                print("[WoW] Type /cm <message> in-game, or press Enter here...\n\n---\n")
+                return input(self.conversation_manager.player_name + ": ")
+            time.sleep(0.5)
+
     # ── Required Pantella API Methods ─────────────────────────────────────────────
     def enable_character_selection(self):
         return []
@@ -823,6 +853,7 @@ class WoWGameInterface(BaseGameInterface):
     def end_conversation(self):
         self.radiant_queue = []
         self._last_processed_event_id = 0
+        self._last_processed_input_id = 0
         self._update_overlay("Companion standing by...", "white")
         return True
 
@@ -858,3 +889,8 @@ class WoWGameInterface(BaseGameInterface):
             except RuntimeError:
                 pass
             self._combat_transport = None
+
+# Class alias for Pantella compatibility
+GameInterface = WoWGameInterface
+
+

@@ -1,0 +1,143 @@
+{
+    "name": "World of Warcraft - Companion",
+    "style": {
+        "replacements": [
+            {
+                "char": "\u201c",
+                "replacement": ""
+            },
+            {
+                "char": "\u201d",
+                "replacement": ""
+            },
+            {
+                "char": "\"",
+                "replacement": ""
+            },
+            {
+                "char": "\n",
+                "replacement": " "
+            }
+        ],
+        "force_speaker": true,
+        "roleplay_inverted": false,
+        "roleplay_prefix": "*",
+        "roleplay_prefix_aliases": [
+            "("
+        ],
+        "roleplay_suffix": "*",
+        "roleplay_suffix_aliases": [
+            ")"
+        ],
+        "stop": [
+            "<|turn>",
+            "<turn|>",
+            "<channel|>"
+        ],
+        "BOS_token": "<|turn>",
+        "EOS_token": "<turn|>",
+        "message_signifier": ":",
+        "role_seperator": "\n",
+        "message_seperator": "\n",
+        "message_separator": "\n",
+        "thinking": false,
+        "message_format": "[BOS_token][role_prefix_insert][role_seperator][name][message_signifier][content][role_suffix_insert][EOS_token][message_seperator]",
+        "chat_format": "[messages]",
+        "message_roles": [
+            {
+                "role_name": "user",
+                "role_prefix_insert": "user",
+                "role_suffix_insert": ""
+            },
+            {
+                "role_name": "assistant",
+                "role_prefix_insert": "assistant",
+                "role_suffix_insert": ""
+            },
+            {
+                "role_name": "system",
+                "role_prefix_insert": "system",
+                "role_suffix_insert": ""
+            }
+        ],
+        "banned_chars": [],
+        "end_of_sentence_chars": [
+            ".",
+            "?",
+            "!"
+        ],
+        "allow_npc_roleplay": true,
+        "behavior_example_insertion": true,
+        "include_behavior_explanation": true
+    },
+    "language": {
+        "prompts": {
+            "single_player_with_npc": "{bio}",
+            "single_npc_with_npc": "{bio1}",
+            "multi_npc": "{bios}"
+        },
+        "language_name": "Common",
+        "language_code": "en",
+        "tts_language_code": "en",
+        "predetermined_npc_greetings": [
+            "Hello.",
+            "Greetings.",
+            "What is it?"
+        ],
+        "predetermined_player_greetings": [
+            "Hello [character].",
+            "Hey [character]."
+        ],
+        "end_conversation_keywords": [
+            "Goodbye",
+            "Farewell",
+            "Bye"
+        ],
+        "goodbye_npc_responses": [
+            "Safe travels",
+            "Take care",
+            "Goodbye"
+        ],
+        "chromadb_memories_explanation": "{self_name} is thinking about the following memories:",
+        "summarizing_memory_prompt": "Summarize the conversation history between {self_name} and others in Azeroth.",
+        "summarizing_memory_explanation": "The following is a summary of {self_name} memories:",
+        "intro_message": "*[player] approaches {name}.*",
+        "game_events": {
+            "time_update": "It is now {time12} {time_group}.",
+            "player_started_combat": "[player] is fighting.",
+            "player": {
+                "OnLocationChange": "[player] is now at {current_location}."
+            }
+        },
+        "banned_learnable_names": [],
+        "known_perspective_name": {
+            "friend": "{other_name}"
+        },
+        "unknown_perspective_name": {
+            "friend": "A friend"
+        },
+        "race_titles": {},
+        "age_titles": {
+            "adult": "Adult"
+        },
+        "aged_gendered_titles": {
+            "Male": {
+                "adult": "Man"
+            },
+            "Female": {
+                "adult": "Woman"
+            }
+        },
+        "trust_titles": {
+            "friend": "friend"
+        },
+        "meet_string": "{self_name} remembered {other_character_name}.",
+        "memory_present_separator": "NEW CONVERSATION.",
+        "behaviors_explanation_system_message_1": "",
+        "behaviors_explanation_system_message_2": "",
+        "in_game_language_name": "Common",
+        "allow_npc_roleplay": true,
+        "first_message_hidden_symbol": [],
+        "message_hidden_symbol": []
+    }
+}

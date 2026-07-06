@@ -94,6 +94,9 @@ globals = {
     "DEFAULT_CHAT_FRAME",
     -- https://wowpedia.fandom.com/wiki/CopyToClipboard
     "CopyToClipboard",
+    -- Slash command registration
+    "SLASH_MANTELLA_TALK1",
+    "SlashCmdList",
 
     -- ── WoW Constants ────────────────────────────────────────────────────
     -- DEPRECATION WATCH: Verify CurveConstants.ScaleTo100 still valid in current patch.

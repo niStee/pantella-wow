@@ -1,9 +1,8 @@
-## Interface: 110000
+## Interface: 120007
 ## Title: MantellaWoW
-## Notes: AI Companion Bridge for Pantella - Reads Questie, DBM, and Details! data
+## Notes: AI Companion Bridge for Pantella
 ## Author: Atlas (OhMyOpenCode)
 ## Version: 1.0.0
 ## SavedVariables: MantellaWoWDB
-## Dependencies: Questie, DBM-Core, Details
 
 MantellaWoW.lua
