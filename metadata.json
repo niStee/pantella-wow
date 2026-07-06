@@ -5,6 +5,7 @@
     "description": "World of Warcraft integration for Pantella with AI companions.",
     "author": "niStee",
     "url": "https://github.com/niStee/pantella-wow",
+    "enabled": true,
     "entry_points": {
         "game_interfaces": ["game_interfaces/wow.py"],
         "conversation_managers": ["conversation_managers/wow_conversation_manager.py"],

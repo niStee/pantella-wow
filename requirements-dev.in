@@ -1,5 +1,7 @@
 pytest
+pytest-asyncio
 pytest-mock
 mypy
+tomli; python_version < "3.11"
 types-mock
 watchdog

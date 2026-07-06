@@ -20,6 +20,7 @@ local defaults = {
     recent_events = {},
     nearby = { players = {}, npcs = {}, hostile = {} },
     group_size = 0,
+    player_input_id = 0,
     -- Pet data
     pet = {
         name = "Companion",
@@ -100,7 +101,23 @@ local function PushEvent(event_type, data)
 end
 
 -- Pet detection
+-- Detection decision tree (verified against Blizzard UI source - Gethe/wow-ui-source,
+-- Ketho/wow-ui-source-midnight-ptr, Blizzard_APIDocumentationGenerated):
+--
+--   IsMounted()                       -> MOUNT
+--   C_PetJournal.GetSummonedPetGUID() -> COMPANION (battle pet / non-combat pet)
+--   UnitExists("pet")                 -> COMBAT PET (hunter/warlock/DK/mage)
+--   Nothing detected                  -> nil (Python backend uses "Unknown" fallback)
+--
+-- Sources:
+--   UnitExists("pet"): UnitDocumentation.lua - covers controllable combat pets only
+--   HasPetUI(): undocumented native; known to miss Frost Mage Water Elemental
+--   UnitCreatureFamily("pet"): returns (name, id) - id is stable across locales
+--   UnitCreatureType("pet"): returns "Beast"|"Demon"|"Undead"|"Elemental"|...
+--   C_PetJournal.GetSummonedPetGUID(): undocumented but used by Blizzard's own UI
+--   IsMounted(): PlayerScriptDocumentation.lua - returns bool, no args
 local function GetCurrentCompanion()
+    -- 1. MOUNT - check first because mounting dismisses/overrides other pets visually
     if IsMounted() then
         local mountName = "Mount"
         for i = 1, 40 do
@@ -130,16 +147,38 @@ local function GetCurrentCompanion()
         }
     end
     
-    local hasSpells, petToken = HasPetSpells()
-    if hasSpells then
+    -- 2. COMBAT PET - hunter pet, warlock minion, DK ghoul, mage Water Elemental
+    -- Check both HasPetSpells() AND UnitExists("pet") because HasPetSpells/HasPetUI
+    -- are known to miss the Frost Mage Water Elemental (undocumented native bug).
+    local hasSpells = HasPetSpells()
+    local petExists = UnitExists("pet")
+    
+    if hasSpells or petExists then
         local name = UnitName("pet")
-        if name and name ~= "" then
+        if name and name ~= "" and name ~= "Unknown" then
             local creatureType = UnitCreatureType("pet") or "Unknown"
-            local family = UnitCreatureFamily("pet") or "Unknown"
-            if petToken == "DEMON" or family == "Unknown" then
-                family = creatureType
+            -- UnitCreatureFamily returns (name, id) - id is numeric, stable across locales
+            local familyName, familyID = UnitCreatureFamily("pet")
+            familyName = familyName or creatureType or "Unknown"
+            
+            -- Classify pet_token by creature type for backend personality routing.
+            -- creatureType values (from Blizzard API):
+            --   "Beast"      -> hunter pet  -> HUNTER_PET
+            --   "Demon"      -> warlock minion -> WARLOCK_MINION
+            --   "Undead"     -> DK ghoul -> DK_GHOUL
+            --   "Elemental"  -> mage Water Elemental -> MAGE_ELEMENTAL
+            local petToken
+            if creatureType == "Demon" then
+                petToken = "WARLOCK_MINION"
+            elseif creatureType == "Undead" then
+                petToken = "DK_GHOUL"
+            elseif creatureType == "Elemental" then
+                petToken = "MAGE_ELEMENTAL"
+            else
+                petToken = "HUNTER_PET"
             end
             
+            -- Health percentage
             local health = 100
             local isDead = UnitIsDead("pet") or false
             if not isDead then
@@ -159,7 +198,8 @@ local function GetCurrentCompanion()
             
             return {
                 name = name,
-                family = family,
+                family = familyName,
+                family_id = familyID,
                 type = creatureType,
                 health = health,
                 is_dead = isDead,
@@ -170,6 +210,9 @@ local function GetCurrentCompanion()
         end
     end
     
+    -- 3. COMPANION - summoned battle pet / non-combat pet from the Pet Journal
+    -- C_PetJournal.GetSummonedPetGUID() is undocumented but used extensively by
+    -- Blizzard's own Pet Collection UI (Blizzard_PetCollection.lua).
     local petGUID = C_PetJournal.GetSummonedPetGUID()
     if petGUID then
         local speciesID, customName = C_PetJournal.GetPetInfoByPetID(petGUID)
@@ -196,6 +239,7 @@ local function GetCurrentCompanion()
         }
     end
     
+    -- 4. Nothing detected - Python backend will use "Unknown" personality
     return nil
 end
 
@@ -315,16 +359,19 @@ end)
 
 local last_json = ""
 local last_hash = ""
+local pending_player_input = nil
 
 local function HashState()
     local pet = MantellaWoWDB.pet or {}
-    return string.format("%s|%s|%s|%d|%s|%d",
+    local input_id = MantellaWoWDB.player_input_id or 0
+    return string.format("%s|%s|%s|%d|%s|%d|%d",
         pet.name or "",
         pet.family or "",
         pet.health or 0,
         MantellaWoWDB.in_combat and 1 or 0,
         MantellaWoWDB.zone or "",
-        event_counter
+        event_counter,
+        input_id
     )
 end
 
@@ -356,6 +403,8 @@ local function OnUpdate()
         end
     end
     
+    MantellaWoWDB.player_input = pending_player_input
+
     local current_hash = HashState()
     if current_hash ~= last_hash then
         last_hash = current_hash
@@ -381,4 +430,17 @@ frame:SetScript("OnEvent", function(self, event, arg1)
     end
 end)
 
+
+
+-- Player text input channel
+SLASH_MANTELLA_TALK1 = "/cm"
+SlashCmdList["MANTELLA_TALK"] = function(msg)
+    if not msg or msg == "" then
+        print("|cffff8000[MantellaWoW]|r Usage: /cm <message>")
+        return
+    end
+    MantellaWoWDB.player_input_id = (MantellaWoWDB.player_input_id or 0) + 1
+    pending_player_input = msg
+    print("|cff00ff00[MantellaWoW]|r -> [" .. MantellaWoWDB.player_input_id .. "] " .. msg)
+end
 print("|cff00ff00[MantellaWoW]|r Loaded v" .. defaults.version)
