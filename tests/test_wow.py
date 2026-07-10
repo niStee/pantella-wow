@@ -17,7 +17,11 @@ class TestPromptBuilding:
             patch("game_interfaces.wow.WATCHDOG_AVAILABLE", False),
             patch("game_interfaces.wow.WINSOUND_AVAILABLE", True),
         ):
-            iface = WoWGameInterface(mock_conversation_manager, valid_games=["wow"], interface_slug="wow_game_interface")
+            iface = WoWGameInterface(
+                mock_conversation_manager,
+                valid_games=["wow"],
+                interface_slug="wow_game_interface",
+            )
             # Mock the overlay to avoid tkinter issues
             iface.overlay = MagicMock()
             # Prevent load_game_state from overwriting mocked game_state
@@ -123,7 +127,11 @@ class TestRadiantTriggers:
             patch("game_interfaces.wow.WATCHDOG_AVAILABLE", False),
             patch("game_interfaces.wow.WINSOUND_AVAILABLE", True),
         ):
-            iface = WoWGameInterface(mock_conversation_manager, valid_games=["wow"], interface_slug="wow_game_interface")
+            iface = WoWGameInterface(
+                mock_conversation_manager,
+                valid_games=["wow"],
+                interface_slug="wow_game_interface",
+            )
             iface.overlay = MagicMock()
             iface.last_pet_health = 100
             iface.last_zone = "Elwynn Forest"
@@ -213,7 +221,11 @@ class TestStateParsing:
             patch("game_interfaces.wow.WATCHDOG_AVAILABLE", False),
             patch("game_interfaces.wow.WINSOUND_AVAILABLE", True),
         ):
-            iface = WoWGameInterface(mock_conversation_manager, valid_games=["wow"], interface_slug="wow_game_interface")
+            iface = WoWGameInterface(
+                mock_conversation_manager,
+                valid_games=["wow"],
+                interface_slug="wow_game_interface",
+            )
             iface.overlay = MagicMock()
             return iface
 
@@ -238,7 +250,11 @@ class TestPantellaAPICompliance:
             patch("game_interfaces.wow.WATCHDOG_AVAILABLE", False),
             patch("game_interfaces.wow.WINSOUND_AVAILABLE", True),
         ):
-            iface = WoWGameInterface(mock_conversation_manager, valid_games=["wow"], interface_slug="wow_game_interface")
+            iface = WoWGameInterface(
+                mock_conversation_manager,
+                valid_games=["wow"],
+                interface_slug="wow_game_interface",
+            )
             iface.overlay = MagicMock()
             return iface
 

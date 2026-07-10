@@ -890,7 +890,6 @@ class WoWGameInterface(BaseGameInterface):
                 pass
             self._combat_transport = None
 
+
 # Class alias for Pantella compatibility
 GameInterface = WoWGameInterface
-
-
