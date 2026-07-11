@@ -6,7 +6,7 @@
     "memory_manager": "chromadb_memory",
     "character_type": "wow_character_generator",
     "character_manager": "wow_character_manager",
-    "character_db": "wow_character_db",
+    "character_db": "base_db",
     "default_tts": "pocket_tts",
     "default_narrator_voice": "narrator_voice_slug",
     "settings": {

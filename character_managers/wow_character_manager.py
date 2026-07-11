@@ -1,10 +1,17 @@
-from src.character_managers.skyrim_character_manager import SkyrimCharacterManager
+"""WoW character manager stub.
+
+WoW companions are managed by the game interface, so this module only
+needs to provide the module-level attributes that Pantella's manager loader
+expects.
+"""
+
+manager_slug = "wow_character_manager"
+valid_games = ["wow"]
 
 
-class WowCharacterManager(SkyrimCharacterManager):
-    """
-    World of Warcraft character manager.
-    Currently inherits from SkyrimCharacterManager and can be customized later.
-    """
+class Character:
+    """Minimal placeholder."""
 
-    pass
+    def __init__(self, **kwargs):
+        for key, value in kwargs.items():
+            setattr(self, key, value)

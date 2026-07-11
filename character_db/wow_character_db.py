@@ -1,10 +1,17 @@
-from src.character_dbs.skyrim_character_db import SkyrimCharacterDB
+"""WoW character database stub.
+
+WoW characters are read from game state, so this module only needs to
+provide the module-level attributes that Pantella's character DB loader
+expects.
+"""
+
+db_slug = "wow_character_db"
+valid_games = ["wow"]
 
 
-class WowCharacterDB(SkyrimCharacterDB):
-    """
-    World of Warcraft character DB.
-    Currently inherits from SkyrimCharacterDB and can be customized later.
-    """
+class CharacterDB:
+    """Minimal placeholder."""
 
-    pass
+    def __init__(self, **kwargs):
+        for key, value in kwargs.items():
+            setattr(self, key, value)
