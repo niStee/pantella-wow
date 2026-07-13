@@ -32,7 +32,7 @@ We use `luacheck` to analyze `MantellaWoW.lua` for syntax errors, accidental glo
 
 ## Continuous Integration
 
-Every push and pull request triggers the `.github/workflows/ci.yml` pipeline which runs the full test suite automatically on GitHub Actions runners.
+Every pull request triggers the `.github/workflows/ci.yml` pipeline which runs the full test suite automatically on GitHub Actions runners.
 
 ## Pre-Commit and Pre-Push Hooks
 
