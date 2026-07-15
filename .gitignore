@@ -1,3 +1,4 @@
+# ── Python ────────────────────────────────────────────────────────────────
 __pycache__/
 *.pyc
 *.pyo
@@ -5,6 +6,34 @@ __pycache__/
 *.egg-info/
 .pytest_cache/
 venv/
-.env
+.venv/
+dist/
+build/
 tests/__pycache__/
 game_interfaces/__pycache__/
+
+# ── Secrets & credentials ───────────────────────────────────────────────
+.env
+.env.*
+*.age
+
+# ── Pantella runtime artifacts ──────────────────────────────────────────────
+# Local LLM / TTS config with API keys
+config.json
+config.yaml
+config.ini
+config.toml
+
+# Runtime logs and NPC conversation history (PII-adjacent)
+*.log
+logs/
+conversation_logs/
+
+# Release archives built locally
+*.zip
+
+# ── Editor & OS noise ─────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
