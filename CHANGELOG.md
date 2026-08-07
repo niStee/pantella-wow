@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.1](https://github.com/niStee/pantella-wow/compare/v1.0.0...v1.0.1) (2026-08-07)
+
+
+### Bug Fixes
+
+* **wow:** make character stubs standalone and use base_db ([#52](https://github.com/niStee/pantella-wow/issues/52)) ([c3f2eae](https://github.com/niStee/pantella-wow/commit/c3f2eae0a7f1e8c1ae735487fcef20020bc91139))
+
 ## 1.0.0 (2026-06-21)
 
 
