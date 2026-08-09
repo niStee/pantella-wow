@@ -70,6 +70,7 @@ jobs:
       # STEP 2 — Upload full zip (addon + plugin) to Nexus Mods
       # ------------------------------------------------------------------ #
       - name: Upload to Nexus Mods
+        if: ${{ secrets.NEXUSMODS_API_KEY != '' }}
         uses: Nexus-Mods/upload-action@main
         with:
           api_key: ${{ secrets.NEXUSMODS_API_KEY }}
