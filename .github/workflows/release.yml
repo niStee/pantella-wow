@@ -69,8 +69,19 @@ jobs:
       # ------------------------------------------------------------------ #
       # STEP 2 — Upload full zip (addon + plugin) to Nexus Mods
       # ------------------------------------------------------------------ #
+      - name: Verify release zip exists
+        if: ${{ secrets.NEXUSMODS_API_KEY != '' }}
+        run: |
+          ZIP="${{ steps.version.outputs.zip_name }}"
+          if [ ! -f "$ZIP" ]; then
+            echo "::error::Release zip '$ZIP' not found in workspace"
+            exit 1
+          fi
+          echo "::notice::Verified $ZIP exists ($(stat -c%s "$ZIP") bytes)"
+
       - name: Upload to Nexus Mods
         if: ${{ secrets.NEXUSMODS_API_KEY != '' }}
+        continue-on-error: true
         uses: Nexus-Mods/upload-action@main
         with:
           api_key: ${{ secrets.NEXUSMODS_API_KEY }}
