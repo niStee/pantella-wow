@@ -70,7 +70,9 @@ jobs:
       # STEP 2 — Upload full zip (addon + plugin) to Nexus Mods
       # ------------------------------------------------------------------ #
       - name: Verify release zip exists
-        if: ${{ secrets.NEXUSMODS_API_KEY != '' }}
+        if: ${{ env.NEXUSMODS_API_KEY != '' }}
+        env:
+          NEXUSMODS_API_KEY: ${{ secrets.NEXUSMODS_API_KEY }}
         run: |
           ZIP="${{ steps.version.outputs.zip_name }}"
           if [ ! -f "$ZIP" ]; then
@@ -80,7 +82,9 @@ jobs:
           echo "::notice::Verified $ZIP exists ($(stat -c%s "$ZIP") bytes)"
 
       - name: Upload to Nexus Mods
-        if: ${{ secrets.NEXUSMODS_API_KEY != '' }}
+        if: ${{ env.NEXUSMODS_API_KEY != '' }}
+        env:
+          NEXUSMODS_API_KEY: ${{ secrets.NEXUSMODS_API_KEY }}
         continue-on-error: true
         uses: Nexus-Mods/upload-action@main
         with:
