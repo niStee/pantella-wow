@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.2](https://github.com/niStee/pantella-wow/compare/v1.0.1...v1.0.2) (2026-08-12)
+
+
+### Bug Fixes
+
+* **release:** use env: instead of secrets: in if: conditions ([#68](https://github.com/niStee/pantella-wow/issues/68)) ([969b3be](https://github.com/niStee/pantella-wow/commit/969b3bef94765f635ed59330055899a2d97de023))
+
 ## [1.0.1](https://github.com/niStee/pantella-wow/compare/v1.0.0...v1.0.1) (2026-08-07)
 
 
