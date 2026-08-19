@@ -1,9 +1,15 @@
 # Pantella WoW Addon
 
-[![CI](https://github.com/niStee/pantella-wow/actions/workflows/ci.yml/badge.svg)](https://github.com/niStee/pantella-wow/actions/workflows/ci.yml)
-[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/niStee/pantella-wow/badge)](https://securityscorecards.dev/viewer/?uri=github.com/niStee/pantella-wow)
-[![CodeQL](https://github.com/niStee/pantella-wow/actions/workflows/github-code-scanning/codeql/badge.svg)](https://github.com/niStee/pantella-wow/security/code-scanning)
-[![Dependency Graph](https://github.com/niStee/pantella-wow/actions/workflows/dependabot/update-graph/badge.svg)](https://github.com/niStee/pantella-wow/network/dependencies)
+<p align="left">
+  <a href="https://github.com/niStee/pantella-wow/releases"><img src="https://img.shields.io/github/v/release/niStee/pantella-wow?style=flat&logo=github&color=blue" alt="Latest Release"></a>
+  <a href="https://github.com/niStee/pantella-wow/actions/workflows/ci.yml"><img src="https://github.com/niStee/pantella-wow/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI Pipeline"></a>
+  <a href="https://scorecard.dev/viewer/?uri=github.com/niStee/pantella-wow"><img src="https://api.scorecard.dev/projects/github.com/niStee/pantella-wow/badge" alt="OpenSSF Scorecard"></a>
+  <a href="https://github.com/niStee/pantella-wow/actions/workflows/codeql.yml"><img src="https://github.com/niStee/pantella-wow/actions/workflows/codeql.yml/badge.svg?branch=main" alt="CodeQL SAST"></a>
+  <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.10+-3776AB?style=flat&logo=python&logoColor=white" alt="Python 3.10+"></a>
+  <a href="https://www.lua.org/"><img src="https://img.shields.io/badge/Lua-5.1-000080?style=flat&logo=lua&logoColor=white" alt="Lua 5.1"></a>
+  <a href="https://codeberg.org/niStee/pantella-wow"><img src="https://img.shields.io/badge/Mirror-Codeberg-2185d0?style=flat&logo=codeberg&logoColor=white" alt="Codeberg Mirror"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg?style=flat" alt="License: MIT"></a>
+</p>
 
 
 World of Warcraft integration for [Pantella](https://github.com/Pathos14489/Pantella) (a powerful LLM-bridge for gaming), inspired by the original [Mantella](https://github.com/art-from-the-machine/Mantella) project. 
