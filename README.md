@@ -7,7 +7,6 @@
   <a href="https://github.com/niStee/pantella-wow/actions/workflows/codeql.yml"><img src="https://github.com/niStee/pantella-wow/actions/workflows/codeql.yml/badge.svg?branch=main" alt="CodeQL SAST"></a>
   <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.10+-3776AB?style=flat&logo=python&logoColor=white" alt="Python 3.10+"></a>
   <a href="https://www.lua.org/"><img src="https://img.shields.io/badge/Lua-5.1-000080?style=flat&logo=lua&logoColor=white" alt="Lua 5.1"></a>
-  <a href="https://codeberg.org/niStee/pantella-wow"><img src="https://img.shields.io/badge/Mirror-Codeberg-2185d0?style=flat&logo=codeberg&logoColor=white" alt="Codeberg Mirror"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg?style=flat" alt="License: MIT"></a>
 </p>
 
