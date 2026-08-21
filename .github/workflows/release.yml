@@ -17,7 +17,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7.0.1
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           fetch-depth: 0
 
@@ -60,7 +60,7 @@ jobs:
       # ------------------------------------------------------------------ #
       - name: Attach zip to GitHub Release
         if: github.event_name == 'release'
-        uses: softprops/action-gh-release@v3
+        uses: softprops/action-gh-release@c9b46fe53c1044ab84831808c67a441932f74660 # v2.2.4
         with:
           files: ${{ steps.version.outputs.zip_name }}
         env:
@@ -86,7 +86,7 @@ jobs:
         env:
           NEXUSMODS_API_KEY: ${{ secrets.NEXUSMODS_API_KEY }}
         continue-on-error: true
-        uses: Nexus-Mods/upload-action@main
+        uses: Nexus-Mods/upload-action@c96019556046053aa26044b44396cd38929daf23 # main
         with:
           api_key: ${{ secrets.NEXUSMODS_API_KEY }}
           file_id: ${{ vars.NEXUSMODS_FILE_ID }}
