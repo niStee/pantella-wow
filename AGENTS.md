@@ -43,3 +43,10 @@ World of Warcraft integration for Pantella (LLM-bridge for gaming). Python backe
 - Never hardcode WoW API version assumptions — verify against Blizzard Dev Portal.
 - Never commit game client paths or user-specific WoW directories.
 - Never skip Wowpedia/Dev Portal source comments on new events (enforced by tests).
+
+## Repository topology
+- canonical: GitHub (niStee/pantella-wow) — all changes land via PR to main
+- mirror: Codeberg (codeberg.org/niStee/pantella-wow) — automated push mirror via
+  .github/workflows/mirror-codeberg.yml; receives main + tags only
+- never push directly to main; never push to Codeberg directly
+- mirror repair path: re-run the workflow (workflow_dispatch), not local pushes
