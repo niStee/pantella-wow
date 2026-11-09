@@ -37,3 +37,6 @@ conversation_logs/
 Thumbs.db
 *.swp
 *.swo
+
+# Claude Code per-user approvals: the file can hold pasted credentials, never commit it
+.claude/settings.local.json
