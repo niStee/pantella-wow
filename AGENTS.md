@@ -2,7 +2,7 @@
 
 > Parent: [~/Projects/AGENTS.md](../AGENTS.md) — project index.
 > Primary Repo: `niStee/pantella-wow` on GitHub (public) · EU Mirror: `niStee/pantella-wow` on Codeberg (private)
-> License: GNU General Public License v3.0 (GPL-3.0) · [SECURITY.md](file:///home/nils/Projects/pantella-wow/SECURITY.md)
+> License: GNU General Public License v3.0 (GPL-3.0) · [SECURITY.md](./SECURITY.md)
 
 World of Warcraft integration for Pantella (LLM-bridge for gaming). Python backend with a Lua WoW addon. Radiant NPC/pet conversations triggered by combat-log events.
 
